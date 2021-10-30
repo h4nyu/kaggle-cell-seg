@@ -9,6 +9,7 @@ authors = []
 python = "~3.9"
 torch = {url = "https://download.pytorch.org/whl/cu113/torch-1.10.0%2Bcu113-cp39-cp39-linux_x86_64.whl"}
 numpy = "^1.21.3"
+kaggle = "^1.5.12"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

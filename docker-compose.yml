@@ -9,5 +9,7 @@ services:
     volumes:
       - .:/app
       - ./store:/store
-      - ./kaggle.json:/root/.kaggle/kaggle.json
+    environment:
+      - KAGGLE_USERNAME
+      - KAGGLE_KEY
     runtime: nvidia
