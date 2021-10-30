@@ -33,8 +33,3 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/inst
 WORKDIR /app
 COPY . .
 RUN poetry install
-
-# RUN pip install torch==1.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
-# RUN pip install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
-# RUN pip install --no-cache-dir scikit-build \
-#     && pip install --no-cache-dir -e .[develop]
