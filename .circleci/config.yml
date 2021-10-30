@@ -4,6 +4,7 @@ jobs:
   build_and_test:
     machine:
       image: circleci/classic:edge
+      resource_class: gpu.nvidia.small
     working_directory: ~/repo
     steps:
       - checkout
