@@ -1,0 +1,13 @@
+version: '2.4'
+
+services:
+  app:
+    tty: true
+    build: 
+      context: .
+    shm_size: '30gb'
+    volumes:
+      - .:/app
+      - ./store:/store
+      - ./kaggle.json:/root/.kaggle/kaggle.json
+    runtime: nvidia

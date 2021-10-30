@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "my-package"
+version = "0.1.0"
+description = "my-package"
+license = "MIT"
+authors = []
+
+[tool.poetry.dependencies]
+python = "~3.9"
+torch = {url = "https://download.pytorch.org/whl/cu113/torch-1.10.0%2Bcu113-cp39-cp39-linux_x86_64.whl"}
+numpy = "^1.21.3"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+pytest-cov = "^3.0.0"
+mypy = "^0.910"
+black = "^21.9b0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
