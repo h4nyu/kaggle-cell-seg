@@ -7,6 +7,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - checkout
+
       - run:
           name: "Setup environment variables"
           command: |
@@ -22,6 +23,7 @@ jobs:
           name: "Build images"
           command: |
             docker-compose build
+
 
 workflows:
   version: 2
