@@ -26,21 +26,6 @@ jobs:
           command: |
             docker-compose build
 
-      - run:
-          name: "Start app"
-          command: |
-            docker-compose up -d
-
-      - run:
-          name: "Download Files"
-          command: |
-            docker-compose exec app ./setup_store.sh
-
-      - run:
-          name: "Test"
-          command: |
-            docker-compose exec app pytest
-
 
 workflows:
   version: 2
