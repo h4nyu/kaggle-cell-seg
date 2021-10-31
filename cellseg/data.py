@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import Tensor
+from torchvision.utils import draw_segmentation_masks
 
 
 def seed(num: int) -> None:
@@ -19,3 +20,8 @@ def decode_rle_mask(rle_mask: str, shape: tuple[int, int]) -> Tensor:
         mask[start:end] = 1
     mask = mask.reshape(shape[0], shape[1])
     return torch.from_numpy(mask)
+
+
+class SegmentationPlot:
+    def __init__(self) -> None:
+        ...
