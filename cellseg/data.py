@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from torch import Tensor
 from torchvision.utils import draw_segmentation_masks
+import torchvision.transforms.functional as F
+import pandas as pd
 
 
 def seed(num: int) -> None:
@@ -18,8 +20,16 @@ def decode_rle_mask(rle_mask: str, shape: tuple[int, int]) -> Tensor:
     mask = np.zeros((shape[0] * shape[1]), dtype=np.uint8)
     for start, end in zip(starts, ends):
         mask[start:end] = 1
-    mask = mask.reshape(shape[0], shape[1])
+    mask = mask.reshape(shape[0], shape[1]).astype(bool)
     return torch.from_numpy(mask)
+
+
+def get_masks(df: pd.DataFrame, image_id: str) -> Tensor:
+    rows = df[df["id"] == image_id].apply(
+        lambda r: decode_rle_mask(r.annotation, (r.height, r.width)), axis=1
+    )
+    masks = torch.stack(rows.tolist())
+    return masks
 
 
 class SegmentationPlot:
