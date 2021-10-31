@@ -17,6 +17,9 @@ def test_decode_rle_mask_and_view() -> None:
 
     assert mask.shape == shape
 
-    image_path = os.join(TRAIN_PATH, f"{first_row.id}.png")
+    image_path = os.path.join(TRAIN_PATH, f"{first_row.id}.png")
+    print(image_path)
     img = read_image(image_path)
-    draw_segmentation_masks(img, mask=mask, alpa=0.7)
+    # a = draw_segmentation_masks(img, mask=mask, alpa=0.7)
+    # print(a)
+
