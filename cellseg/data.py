@@ -3,6 +3,7 @@ import torch
 from torch import Tensor
 from torchvision.utils import draw_segmentation_masks
 import torchvision.transforms.functional as F
+from torchvision.utils import draw_segmentation_masks, save_image
 import pandas as pd
 
 
@@ -32,6 +33,8 @@ def get_masks(df: pd.DataFrame, image_id: str) -> Tensor:
     return masks
 
 
-class SegmentationPlot:
-    def __init__(self) -> None:
-        ...
+def draw_save(image: Tensor, masks: Tensor, path: str) -> None:
+    if image.shape[0] == 1:
+        image = image.expand(3, -1, -1)
+    plot = draw_segmentation_masks(image, masks, alpha=0.3)
+    save_image(plot / 255, path)
