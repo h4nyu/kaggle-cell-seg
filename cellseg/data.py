@@ -3,6 +3,11 @@ import torch
 from torch import Tensor
 
 
+def seed(num: int) -> None:
+    torch.manual_seed(num)
+    np.random.seed(num)
+
+
 def decode_rle_mask(rle_mask: str, shape: tuple[int, int]) -> Tensor:
     mask_nums = rle_mask.split()
     starts, lengths = [
