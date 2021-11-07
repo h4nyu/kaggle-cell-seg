@@ -42,8 +42,15 @@ def get_masks(
     return masks
 
 
-def draw_save(image: Tensor, masks: Tensor, path: str) -> None:
+def draw_save(
+    image: Tensor,
+    path: str,
+    masks: Optional[Tensor] = None,
+) -> None:
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
-    plot = draw_segmentation_masks(image, masks, alpha=0.3)
-    save_image(plot / 255, path)
+    if masks is not None:
+        plot = draw_segmentation_masks(image, masks, alpha=0.3)
+    else:
+        plot = image
+    save_image(plot, path)
