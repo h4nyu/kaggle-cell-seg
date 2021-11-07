@@ -1,17 +1,13 @@
 import torch.nn as nn
 import torch
-from typing import NewType
 from torchvision.ops import masks_to_boxes
 import torch.nn.functional as F
 from cellseg.solo.mkmaps import MkGaussianMaps
 from cellseg.data import draw_save
 
 
-Masks = NewType("Masks", torch.Tensor)  # [C, H, W] datatype is boolean
-
-
 @torch.no_grad()
-def test_seg_to_center() -> None:
+def test_mkmaps() -> None:
     masks = torch.load("data/0030fd0e6378-masks.pth")
     boxes = masks_to_boxes(masks)
     labels = torch.zeros(boxes.shape[0])
