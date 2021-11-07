@@ -10,8 +10,9 @@ from cellseg.data import draw_save
 Masks = NewType("Masks", torch.Tensor)  # [C, H, W] datatype is boolean
 
 
+@torch.no_grad()
 def test_seg_to_center() -> None:
-    masks = torch.load("data/0030fd0e6378-masks.pth").float()
+    masks = torch.load("data/0030fd0e6378-masks.pth")
     boxes = masks_to_boxes(masks)
     labels = torch.zeros(boxes.shape[0])
     mkmaps = MkGaussianMaps(num_classes=1)
