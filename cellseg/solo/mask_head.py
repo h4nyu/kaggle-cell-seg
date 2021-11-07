@@ -61,7 +61,6 @@ class MaskHead(nn.Module):
         for feat, conv in zip(features[1:], self.convs_all_levels[1:]):
             coord_feat = self.coord_conv(feat)
             conved = conv(coord_feat)
-            print(conved.shape)
             conved_sum += conved
         out = self.out_conv(conved_sum)
         return out
