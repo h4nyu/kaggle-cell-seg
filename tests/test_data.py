@@ -36,7 +36,7 @@ def test_get_masks_and_plot(image_id: str, cell_type: CellType) -> None:
         )
         img = read_image(os.path.join(ROOT_PATH, "train", f"{image_id}.png"))
         draw_save(
-            img * 255,
+            img / 255,
             os.path.join(ROOT_PATH, f"test-plot-{image_id}-{cell_type}.png"),
             masks=masks,
         )

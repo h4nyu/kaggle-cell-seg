@@ -50,7 +50,10 @@ def draw_save(
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
     if masks is not None:
-        plot = draw_segmentation_masks(image, masks, alpha=0.3)
+        plot = (
+            draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
+            / 255
+        )
     else:
         plot = image
     save_image(plot, path)
