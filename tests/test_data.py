@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 
 train_df = pd.read_csv(TRAIN_FILE_PATH)
 first_row = train_df.loc[0]
-print(train_df.groupby("id")["cell_type"].unique())
 
 
 def test_decode_rle_mask_and_view() -> None:
@@ -37,5 +36,7 @@ def test_get_masks_and_plot(image_id: str, cell_type: CellType) -> None:
         )
         img = read_image(os.path.join(ROOT_PATH, "train", f"{image_id}.png"))
         draw_save(
-            img, masks, os.path.join(ROOT_PATH, f"test-plot-{image_id}-{cell_type}.png")
+            img / 255,
+            os.path.join(ROOT_PATH, f"test-plot-{image_id}-{cell_type}.png"),
+            masks=masks,
         )
