@@ -5,8 +5,9 @@ from cellseg.solo.mask_head import MaskHead
 def test_mask_head() -> None:
     in_channels = 3
     out_channels = 4
-    base_resolution = 128
-    num_classes = 32 ** 2
+    base_resolution = 4
+    num_classes = 10
+
     features = [
         torch.rand(1, in_channels, base_resolution * 2 ** i, base_resolution * 2 ** i)
         for i in reversed(range(3))
