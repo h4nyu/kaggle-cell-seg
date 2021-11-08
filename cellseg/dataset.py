@@ -29,7 +29,7 @@ class CellTrainDataset(Dataset):
         return len(self.indecies)
 
     def __getitem__(self, idx: int) -> Optional[TrainItem]:
-        image_id:str = self.indecies[idx]
+        image_id: str = self.indecies[idx]
         masks = get_masks(df=self.df, image_id=image_id)
         if masks is None:
             return None
