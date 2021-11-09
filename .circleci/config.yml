@@ -26,7 +26,7 @@ jobs:
       - run:
           name: "test"
           command: |
-            pytest
+            docker-compose run --rm app pytest
             
 
 workflows:
