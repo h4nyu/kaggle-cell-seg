@@ -10,6 +10,6 @@ services:
       - .:/app
       - ./store:/store
     environment:
-      - KAGGLE_USERNAME
-      - KAGGLE_KEY
+      KAGGLE_USERNAME: ${KAGGLE_USERNAME:?}
+      KAGGLE_KEY: ${KAGGLE_KEY:?}
     runtime: nvidia
