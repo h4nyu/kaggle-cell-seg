@@ -23,7 +23,11 @@ jobs:
           name: "Build images"
           command: |
             docker-compose build
-
+      - run:
+          name: "test"
+          command: |
+            pytest
+            
 
 workflows:
   version: 2
