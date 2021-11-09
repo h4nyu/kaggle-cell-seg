@@ -25,9 +25,10 @@ jobs:
       - run:
           name: "run test"
           command: |
-            docker-compose run --rm app pytest
+            docker-compose run --rm app bash
+            sh setup_store.sh
+            pytest
             
-
 workflows:
   version: 2
   build_and_test:
