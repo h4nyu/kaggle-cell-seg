@@ -1,7 +1,9 @@
 import torch.nn as nn
+import os
 import torch
 from torchvision.ops import masks_to_boxes
 import torch.nn.functional as F
+from cellseg.config import ROOT_PATH
 from cellseg.solo.mkmaps import MkGaussianMaps
 from cellseg.data import draw_save
 
@@ -15,8 +17,8 @@ def test_mkmaps() -> None:
     heatmap = mkmaps(
         box_batch=[boxes],
         label_batch=[labels],
-        hw=(16, 16),
+        hw=(64, 64),
         original_hw=masks.shape[1:],
     )
-    draw_save(heatmap[0], "test-heatmap.png")
+    draw_save(heatmap[0], os.path.join(ROOT_PATH, "test-heatmap.png"))
     assert heatmap.sum() == len(boxes)
