@@ -22,12 +22,12 @@ jobs:
           name: "Build images"
           command: |
             docker-compose build
-      - run:
-          name: "run test"
-          command: |
-            docker-compose run --rm app bash
-            sh setup_store.sh
-            pytest
+      # - run:
+      #     name: "run test"
+      #     command: |
+      #       docker-compose run --rm app bash
+      #       sh setup_store.sh
+      #       pytest
             
 workflows:
   version: 2
