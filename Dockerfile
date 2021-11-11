@@ -1,10 +1,10 @@
 FROM debian:bullseye-slim
 
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV PATH /usr/local/cuda/bin:/usr/local/nvidia/bin:/root/.local/bin:${PATH}
-ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
-ENV NVIDIA_REQUIRE_CUDA "cuda>=10.2"
-ENV CUDA_VERSION 10.2.89
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    PATH=/usr/local/cuda/bin:/usr/local/nvidia/bin:/root/.local/bin:${PATH} \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    NVIDIA_REQUIRE_CUDA="cuda>=10.2" \
+    CUDA_VERSION=10.2.89
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gnupg2 libc-dev libjpeg-dev zlib1g-dev curl ca-certificates gcc python3 python3-dev python3-pip python3-setuptools python3-wheel build-essential unzip \ 
@@ -29,4 +29,4 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/inst
 
 WORKDIR /app
 COPY . .
-RUN poetry install
+RUN poetry install && poetry cache clear
