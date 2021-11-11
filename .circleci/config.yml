@@ -35,12 +35,10 @@ jobs:
           paths:
             - ./image.tar
 
-      # - run:
-      #     name: "run test"
-      #     command: |
-      #       docker-compose run --rm app bash
-      #       sh setup_store.sh
-      #       pytest
+      - run:
+          name: Lint
+          command: |
+            docker-compose run --rm app mypy
             
 workflows:
   version: 2
