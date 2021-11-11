@@ -29,4 +29,4 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/inst
 
 WORKDIR /app
 COPY . .
-RUN poetry install && poetry cache clear
+RUN poetry install
