@@ -30,7 +30,7 @@ jobs:
               docker save cellseg > image.tar
             fi
 
-       - save_cache:
+      - save_cache:
           key: docker-image-{{ .Environment.CACHE_VERSION }}-{{ checksum "Dockerfile.local" }}-{{ checksum "poetry.lock" }}
           paths:
             - ./image.tar
