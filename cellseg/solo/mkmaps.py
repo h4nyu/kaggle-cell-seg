@@ -1,6 +1,7 @@
 import torch
 from typing import Literal, Optional
 from torch import Tensor
+from torchvision.ops import masks_to_boxes, box_convert
 
 GaussianMapMode = Literal["length", "aspect", "constant"]
 
@@ -100,3 +101,28 @@ class MkGaussianMaps(MkMapsBase):
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return heatmap
+
+    def _mkmaskmap(
+        self,
+        masks: Tensor,
+        grid_size: tuple[int, int],
+        out_size: tuple[int, int],
+    ) -> Tensor:
+        device = masks.device
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(grid_size[0], dtype=torch.int64),
+            torch.arange(grid_size[1], dtype=torch.int64),
+        )
+        out = torch.zeros(
+            (grid_size[0] * grid_size[1], *out_size), dtype=masks.dtype
+        ).to(device)
+        if masks.shape[0] == 0:
+            return out
+        boxes = masks_to_boxes(masks)
+        index = (
+            box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2]
+            .long()
+            .sum(axis=1)
+        )
+        out[index] = masks
+        return out
