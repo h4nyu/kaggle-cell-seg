@@ -1,5 +1,5 @@
 import torch
-from cellseg.solo.mask_head import MaskHead
+from cellseg.solo.heads import MaskHead
 
 
 def test_mask_head() -> None:
