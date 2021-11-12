@@ -64,3 +64,4 @@ class MaskHead(nn.Module):
             conved_sum += conved
         out = self.out_conv(conved_sum)
         return out
+
