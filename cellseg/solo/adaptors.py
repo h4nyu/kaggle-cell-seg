@@ -82,12 +82,12 @@ class BatchAdaptor:
         mask_batch: list[Tensor],
         label_batch: list[Tensor],
     ) -> list[tuple[Tensor, Tensor]]:  # grid, masks, positive_index
-        batch = []
+        batch:list[tuple[Tensor, Tensor]] = []
         for masks, labels in zip(mask_batch, label_batch):
             scaled_centers = self.masks_to_centers(masks) * self.scale
-            category_grid, mask_index = self.to_cagetory_grid(
+            category_grid, mask_index = self.to_category_grid(
                 centers=scaled_centers,
                 labels=labels,
             )
-            batch.append(category_grid, masks)
+            batch.append((category_grid, masks))
         return batch
