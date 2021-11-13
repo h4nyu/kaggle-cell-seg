@@ -14,7 +14,7 @@ efficientnet_channels = {
     "efficientnet-b7": [3, 32, 48, 80, 224, 640, 2560],
 }
 
-efficientnet_scales = [1, 1 / 2, 1 / 4, 1 / 8, 1 / 16, 1 / 32, 1 / 32]
+efficientnet_reductions = [1, 2, 4, 8, 16, 32, 32]
 
 
 class EfficientNetFPN(nn.Module):
@@ -25,8 +25,8 @@ class EfficientNetFPN(nn.Module):
         super().__init__()
         self.net = EfficientNet.from_pretrained(name)
         self.out_len = 7
-        self.feature_channels = efficientnet_channels[name][: self.out_len]
-        self.feature_scales = efficientnet_scales
+        self.channels = efficientnet_channels[name][: self.out_len]
+        self.reductions = efficientnet_reductions
 
     def forward(self, images: Tensor) -> list[Tensor]:  # P1 - P6, P7 is dropped
         features = self.net.extract_endpoints(images)

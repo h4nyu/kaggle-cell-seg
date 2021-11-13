@@ -4,8 +4,9 @@ from .heads import Head
 from typing import Protocol
 
 
-class Backbone(Protocol):
-    feature_channels: list[int]
+class FPNLike(Protocol):
+    channels: list[int]
+    reductions: list[int]
 
     def __call__(self, x: Tensor) -> list[Tensor]:
         ...
@@ -14,44 +15,39 @@ class Backbone(Protocol):
 class Solo(nn.Module):
     def __init__(
         self,
-        backbone: Backbone,
-        in_channels: int,
+        backbone: FPNLike,
         out_channels: int,
         grid_size: int,
-        category_feat_range: tuple[int, int] = (3, 5),
-        mask_feat_range: tuple[int, int] = (0, 3),
+        category_feat_range: tuple[int, int],
+        mask_feat_range: tuple[int, int],
         num_classes: int = 1,
     ) -> None:
         super().__init__()
         self.category_feat_range = category_feat_range
         self.mask_feat_range = mask_feat_range
+        self.backbone = backbone
         self.category_head = Head(
-            in_channels=in_channels,
             out_channels=out_channels,
             num_classes=num_classes,
-            fpn_length=category_feat_range[1] - category_feat_range[0],
+            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            reductions=backbone.reductions[
+                category_feat_range[0] : category_feat_range[1]
+            ],
         )
 
         self.mask_head = Head(
-            fpn_length=mask_feat_range[1] - mask_feat_range[0],
-            in_channels=in_channels,
             out_channels=out_channels,
             num_classes=grid_size ** 2,
+            channels=backbone.channels[mask_feat_range[0] : mask_feat_range[1]],
+            reductions=backbone.reductions[mask_feat_range[0] : mask_feat_range[1]],
         )
-        self.backbone = backbone
 
-    def forward(self, image_batch: Tensor) -> None:
+    def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor]:
         features = self.backbone(image_batch)
-        mask_feats = features[self.mask_feat_range[0] : self.mask_feat_range[1]]
         category_feats = features[
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
-        # category_grid = self.category_head(category_feats)
-        # for f in category_feats:
-        #     print(f.shape)
-
-        # category_grid = self.category_head(features[*])
-
-        # features = self.backbone.extract_endpoints(image_batch)
-        # for k,v in features.items():
-        #     print(v.shape)
+        category_grid = self.category_head(category_feats)
+        mask_feats = features[self.mask_feat_range[0] : self.mask_feat_range[1]]
+        masks = self.mask_head(mask_feats)
+        return (category_grid, masks)

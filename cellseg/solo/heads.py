@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch import Tensor
 from .convs import CovNormAct
@@ -7,21 +8,24 @@ from .coord_conv import CoordConv
 class Head(nn.Module):
     def __init__(
         self,
-        in_channels: int,
         out_channels: int,
         num_classes: int,
-        fpn_length: int,
+        channels: list[int] = [],
+        reductions: list[int] = [],
     ) -> None:
         super().__init__()
         self.convs_all_levels = nn.ModuleList()
         self.convs_all_levels.append(
             CovNormAct(
-                in_channels,
+                channels[0],
                 out_channels,
             ),
         )
-
-        for level_idx in range(1, fpn_length):
+        down_counts = torch.log2(torch.tensor(reductions)).long()
+        down_counts = down_counts - down_counts[0]
+        for level_idx, (in_channels, down_count) in enumerate(
+            zip(channels[1:], down_counts[1:]), 1
+        ):
             convs_per_level = nn.Sequential()
             convs_per_level.add_module(
                 f"conv{level_idx}",
@@ -30,18 +34,15 @@ class Head(nn.Module):
                     out_channels,
                 ),
             )
-            convs_per_level.add_module(
-                f"upsample{level_idx}",
-                nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False),
-            )
-            for j in range(1, level_idx):
-                convs_per_level.add_module(
-                    f"conv{j}",
-                    CovNormAct(
-                        out_channels,
-                        out_channels,
-                    ),
-                )
+            for j in range(down_count):
+                if j != 0:
+                    convs_per_level.add_module(
+                        f"conv{j}",
+                        CovNormAct(
+                            out_channels,
+                            out_channels,
+                        ),
+                    )
                 upsample = nn.Upsample(
                     scale_factor=2, mode="bilinear", align_corners=False
                 )
