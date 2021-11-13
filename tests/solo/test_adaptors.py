@@ -23,7 +23,7 @@ def test_center_to_grid_index() -> None:
     )
     index = CentersToGridIndex(grid_size=64)(centers)
     assert index.dtype == torch.long
-    assert index[0] == 2 * 64 + 1
+    assert index[0] == 1 * 64 + 2
 
 
 def test_category_adaptor() -> None:
