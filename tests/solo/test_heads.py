@@ -1,24 +1,32 @@
+import pytest
 import torch
-from cellseg.solo.heads import MaskHead
+from cellseg.solo.heads import Head
 
 
-def test_mask_head() -> None:
-    in_channels = 3
-    out_channels = 4
-    base_resolution = 32
-    num_classes = 64 * 64
+@pytest.mark.parametrize(
+    "channels, reductions",
+    [
+        ([12, 24, 48], [1, 2, 4]),
+        ([12, 24, 48, 64], [1, 1, 1, 4]),
+        ([12, 24, 48, 64], [1, 2, 2, 4]),
+    ],
+)
+def test_mask_head(channels: list[int], reductions: list[int]) -> None:
+    in_channels = 64
+    out_channels = 64
+    base_resolution = 512
+    num_classes = 3 * 3
 
     features = [
-        torch.rand(1, in_channels, base_resolution * 2 ** i, base_resolution * 2 ** i)
-        for i in reversed(range(3))
+        torch.rand(1, c, base_resolution // s, base_resolution // s)
+        for (c, s) in zip(channels, reductions)
     ]
-    head = MaskHead(
-        in_channels=in_channels,
+    head = Head(
         out_channels=out_channels,
         num_classes=num_classes,
-        fpn_length=len(features),
+        channels=channels,
+        reductions=reductions,
     )
     res = head(features)
-    print(res.shape)
     assert res.shape[2:] == features[0].shape[2:]
     assert res.shape[:2] == (1, num_classes)

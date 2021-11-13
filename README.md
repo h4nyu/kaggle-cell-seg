@@ -1,6 +1,6 @@
 
 # train
-![train](./network.png)
+![train](./train.png)
 
 
 # model

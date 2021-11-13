@@ -40,13 +40,22 @@ with Diagram("train", show=False):
 
 
 with Diagram("model", show=False):
-    image = Tensor3D("image")
-    fpn = FPN("FPN")
-    all_masks = InsntanceMasks("all_masks")
-    cagetory_grid = CategoryGrid("grid")
+    image = Tensor3D("image 512")
+    all_masks = InsntanceMasks("all_masks 512")
+    cagetory_grid = CategoryGrid("cagetory_grid 64")
     cagetory_head = Head("cagetory_head")
     mask_head = Head("mask_head")
+    p1 = Tensor3D("P1 512")
+    p2 = Tensor3D("P2 256")
+    p3 = Tensor3D("P3 128")
+    p4 = Tensor3D("P4 64")
+    p5 = Tensor3D("P5 32")
+    p6 = Tensor3D("P6 16")
+    p7 = Tensor3D("P7 8")
 
+    image >> p1 >> p2 >> p3 >> p4 >> p5 >> p6 >> p7
+    [p1, p2, p3, p4, p5] >> mask_head >> all_masks
+    [p4, p5, p6, p7] >> cagetory_head >> cagetory_grid
 
-    image >> fpn >> cagetory_head >> cagetory_grid
-    fpn >> mask_head >> all_masks
+    # image >>  >> cagetory_head >> cagetory_grid
+    # fpn >> mask_head >> all_masks
