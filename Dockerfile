@@ -5,7 +5,6 @@ ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
     NVIDIA_REQUIRE_CUDA="cuda>=11.3" \
     CUDA_VERSION=11.3.0
-    # LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gnupg2 libc-dev libjpeg-dev zlib1g-dev curl ca-certificates gcc python3 python3-pip python3-setuptools python3-wheel build-essential unzip graphviz \ 
