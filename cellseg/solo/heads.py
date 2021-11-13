@@ -4,7 +4,7 @@ from .convs import CovNormAct
 from .coord_conv import CoordConv
 
 
-class MaskHead(nn.Module):
+class Head(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -64,4 +64,3 @@ class MaskHead(nn.Module):
             conved_sum += conved
         out = self.out_conv(conved_sum)
         return out
-
