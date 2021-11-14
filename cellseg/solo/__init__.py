@@ -2,6 +2,7 @@ import torch.nn as nn
 from torch import Tensor
 from .heads import Head
 from typing import Protocol
+from cellseg.loss import SigmoidFocalLoss, DiceLoss
 
 
 class FPNLike(Protocol):
@@ -16,10 +17,27 @@ class Loss:
     def __init__(
         self,
     ) -> None:
-        ...
+        self.category_loss = SigmoidFocalLoss()
+        self.mask_loss = DiceLoss()
 
-    def __call__(self, x: Tensor) -> Tensor:
-        ...
+    def __call__(
+        self,
+        inputs: tuple[Tensor, Tensor],  # pred_cate_grids, all_masks
+        targets: tuple[
+            Tensor, list[Tensor], list[Tensor]
+        ],  # gt_cate_grids, mask_batch, mask_index_batch
+    ) -> Tensor:
+        pred_category_grids, all_masks = inputs
+        gt_category_grids, gt_mask_batch, mask_index_batch = targets
+        category_loss = self.category_loss(
+            inputs=pred_category_grids, targets=gt_category_grids
+        )
+        mask_loss = 0
+        for gt_masks, mask_index, pred_masks in zip(gt_mask_batch, mask_index_batch, all_masks):
+            filtered_masks = pred_masks[mask_index]
+            mask_loss += self.mask_loss(inputs=filtered_masks, targets=gt_masks)
+        loss = category_loss + mask_loss
+        return loss
 
 
 class Solo(nn.Module):
