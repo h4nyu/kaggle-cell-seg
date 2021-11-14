@@ -13,17 +13,17 @@ from cellseg.metrics import seg_iou, precision_at, precision
     ],
 )
 def test_seg_iou(inputs_len: int, expected: list[float]) -> None:
-    pred_mask = torch.zeros(4, 4)
-    pred_mask[2, 0:inputs_len] = 1
+    pred_masks = torch.zeros(3, 4, 4)
+    pred_masks[0, 2, 0:inputs_len] = 1
 
     gt_masks = torch.zeros(2, 4, 4)
     gt_masks[0, 2, 3] = 1
     gt_masks[0, 2, 2] = 1
     gt_masks[0, 2, 1] = 1
-    res = seg_iou(pred_mask, gt_masks)
-    assert res.shape == (len(gt_masks),)
+    res = seg_iou(pred_masks, gt_masks)
+    assert res.shape == (len(pred_masks), len(gt_masks))
     for i, v in enumerate(expected):
-        assert res[i] == v
+        assert res[0][i] == v
 
 
 def test_seg_iou_masks() -> None:

@@ -4,22 +4,22 @@ from torch import Tensor
 import numpy as np
 
 
-def seg_iou(pred_mask: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
-    pred_mask = pred_mask.bool()
+def seg_iou(pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
+    pred_masks = pred_masks.bool().view(pred_masks.shape[0], 1, *pred_masks.shape[1:])
     gt_masks = gt_masks.bool()
-    intersection = (pred_mask & gt_masks).sum(dim=[1, 2])
-    union = (pred_mask | gt_masks).sum(dim=[1, 2])
-    iou = intersection / union
-    iou = iou.nan_to_num(nan=0)
-    return iou
+    intersection = (pred_masks & gt_masks).sum(dim=[2, 3])
+    union = (pred_masks | gt_masks).sum(dim=[2, 3])
+    iou_matrix = intersection / union
+    iou_matrix = iou_matrix.nan_to_num(nan=0)
+    return iou_matrix
 
 
 def precision_at(pred_masks: Tensor, gt_masks: Tensor, threshold: float) -> float:
     fp = torch.ones(len(gt_masks), dtype=torch.bool)
-    for pred_mask in pred_masks:
-        iou = seg_iou(pred_mask, gt_masks) > threshold
-        if iou.sum() != 0:
-            gt_mask_idx = iou.short().argmax()
+    iou_matrix = seg_iou(pred_masks, gt_masks)
+    for iou_per_pred_mask in iou_matrix:
+        if (iou_per_pred_mask > threshold).sum() != 0:
+            gt_mask_idx = iou_per_pred_mask.short().argmax()
             fp[gt_mask_idx] = False
     fp_count = fp.sum()
     tp_count = len(gt_masks) - fp_count
