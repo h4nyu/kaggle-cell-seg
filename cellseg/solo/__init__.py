@@ -12,6 +12,16 @@ class FPNLike(Protocol):
         ...
 
 
+class Loss:
+    def __init__(
+        self,
+    ) -> None:
+        ...
+
+    def __call__(self, x: Tensor) -> Tensor:
+        ...
+
+
 class Solo(nn.Module):
     def __init__(
         self,
