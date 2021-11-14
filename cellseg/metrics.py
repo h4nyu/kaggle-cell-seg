@@ -22,7 +22,6 @@ def precision_at(pred_masks: Tensor, gt_masks: Tensor, threshold: float) -> floa
             fp[gt_mask_idx] = False
     fp_count = fp.sum()
     tp_count = len(gt_masks) - fp_count
-    fn_count = len(pred_masks) - tp_count
     res = tp_count / (len(gt_masks) + len(pred_masks) - tp_count)
     return res.item()
 
@@ -36,5 +35,4 @@ def precision(
         precision_at(pred_masks=pred_masks, gt_masks=gt_masks, threshold=threshold)
         for threshold in thresholds
     ]
-    print(precisions)
     return np.mean(precisions)
