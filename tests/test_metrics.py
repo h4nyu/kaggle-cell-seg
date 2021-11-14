@@ -12,7 +12,6 @@ from cellseg.metrics import seg_iou
     ],
 )
 def test_seg_iou(inputs_len: int, expected: float) -> None:
-    print("")
     inputs = torch.zeros(1, 4, 4)
     inputs[0, 2, 0:inputs_len] = 1
 
