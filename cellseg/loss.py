@@ -42,7 +42,7 @@ class DiceLoss:
     def __init__(self, smooth: float = 1.0) -> None:
         self.smooth = smooth
 
-    def __call__(self, inputs: Tensor, targets: Tensor):
+    def __call__(self, inputs: Tensor, targets: Tensor) -> Tensor:
 
         inputs = F.sigmoid(inputs)
         inputs = inputs.view(-1)

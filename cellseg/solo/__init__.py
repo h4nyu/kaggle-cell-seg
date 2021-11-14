@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch import Tensor
 from .heads import Head
@@ -32,8 +33,10 @@ class Loss:
         category_loss = self.category_loss(
             inputs=pred_category_grids, targets=gt_category_grids
         )
-        mask_loss = 0
-        for gt_masks, mask_index, pred_masks in zip(gt_mask_batch, mask_index_batch, all_masks):
+        mask_loss = torch.tensor(0.0)
+        for gt_masks, mask_index, pred_masks in zip(
+            gt_mask_batch, mask_index_batch, all_masks
+        ):
             filtered_masks = pred_masks[mask_index]
             mask_loss += self.mask_loss(inputs=filtered_masks, targets=gt_masks)
         loss = category_loss + mask_loss
