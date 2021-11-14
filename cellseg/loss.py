@@ -36,3 +36,33 @@ class SigmoidFocalLoss:
         if self.reduction == "mean":
             loss = loss.mean()
         return loss
+
+
+class DiceLoss:
+    def __init__(self, smooth: float = 1.0) -> None:
+        self.smooth = smooth
+
+    def __call__(self, inputs: Tensor, targets: Tensor):
+
+        inputs = F.sigmoid(inputs)
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        intersection = (inputs * targets).sum()
+        dice = (2.0 * intersection + self.smooth) / (
+            inputs.sum() + targets.sum() + self.smooth
+        )
+
+        return 1 - dice
+
+
+class MaskLoss:
+    def __init__(self) -> None:
+        ...
+
+    def __call__(
+        self, pred_masks: Tensor, mask_index: Tensor, gt_masks: Tensor
+    ) -> None:
+        matched_masks = pred_masks[mask_index]
+        print(matched_masks.shape)
+        ...
