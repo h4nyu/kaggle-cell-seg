@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.loss import SigmoidFocalLoss, MaskLoss, DiceLoss
+from cellseg.loss import SigmoidFocalLoss, DiceLoss
 
 
 @pytest.mark.parametrize(
@@ -12,9 +12,9 @@ from cellseg.loss import SigmoidFocalLoss, MaskLoss, DiceLoss
 )
 def test_binary_focal_loss(factor: float, expected: float) -> None:
     loss = SigmoidFocalLoss()
-    source = torch.ones(1, 1, 3, 3) * factor
-    target = torch.zeros(1, 1, 3, 3)
-    res = loss(source, target)
+    inputs = torch.ones(1, 1, 3, 3) * factor
+    targets = torch.zeros(1, 1, 3, 3)
+    res = loss(inputs, targets)
     assert round(res.item(), 1) == expected
 
 
