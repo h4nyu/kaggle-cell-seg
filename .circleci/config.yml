@@ -23,7 +23,7 @@ jobs:
       - run:
           name: "Build images if needed"
           command: |
-            if test -f zoolake-dev.tar; then
+            if test -f image.tar; then
               docker load < image.tar
             else
               docker-compose build app

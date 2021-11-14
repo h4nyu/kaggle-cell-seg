@@ -1,5 +1,5 @@
 import torch
-from cellseg.solo import Solo
+from cellseg.solo import Solo, Loss
 from cellseg.backbones import EfficientNetFPN
 
 
@@ -22,3 +22,31 @@ def test_solo() -> None:
     category_grid, all_masks = solo(image_batch)
     assert category_grid.shape == (1, num_classes, grid_size, grid_size)
     assert all_masks.shape == (1, grid_size ** 2, *image_batch.shape[2:])
+
+
+def test_loss() -> None:
+    batch_size = 1
+    num_classes = 2
+    grid_size = 10
+    original_size = 100
+
+    # net outputss
+    pred_category_grids = (
+        torch.ones(batch_size, num_classes, grid_size, grid_size) * -100
+    )
+    all_masks = (
+        torch.ones(batch_size, grid_size * grid_size, original_size, original_size)
+        * -100
+    )
+
+    # data adaptor outputs
+    gt_category_grids = torch.zeros(batch_size, num_classes, grid_size, grid_size)
+    gt_mask_batch = [torch.zeros(3, original_size, original_size)]
+    mask_index_batch = [torch.tensor([1, 2, 3])]  # same len to mask_batch item
+
+    loss = Loss()
+    loss_value = loss(
+        inputs=(pred_category_grids, all_masks),
+        targets=(gt_category_grids, gt_mask_batch, mask_index_batch),
+    )
+    assert loss_value == 0
