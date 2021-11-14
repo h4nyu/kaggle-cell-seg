@@ -26,17 +26,6 @@ def test_seg_iou(inputs_len: int, expected: list[float]) -> None:
         assert res[0][i] == v
 
 
-def test_seg_iou_masks() -> None:
-    inputs = torch.zeros(1, 4, 4)
-    inputs[0, 2, 0:2] = 1
-
-    targets = torch.zeros(3, 4, 4)
-    targets[0, 2, 3] = 1
-    targets[0, 2, 2] = 1
-    targets[0, 2, 1] = 1
-    res = seg_iou(inputs, targets)
-
-
 def test_precision_at() -> None:
     inputs = torch.zeros(2, 4, 4)
     inputs[0, 0:2, 0:2] = 1
