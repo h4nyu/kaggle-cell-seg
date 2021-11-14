@@ -4,12 +4,13 @@ from torch import Tensor
 import numpy as np
 
 
-def seg_iou(pred: torch.Tensor, targets: torch.Tensor) -> Tensor:
-    pred = pred.bool()
-    targets = targets.bool()
-    intersection = (pred & targets).sum(dim=[1, 2])
-    union = (pred | targets).sum(dim=[1, 2])
+def seg_iou(pred_mask: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
+    pred_mask = pred_mask.bool()
+    gt_masks = gt_masks.bool()
+    intersection = (pred_mask & gt_masks).sum(dim=[1, 2])
+    union = (pred_mask | gt_masks).sum(dim=[1, 2])
     iou = intersection / union
+    iou = iou.nan_to_num(nan=0)
     return iou
 
 
