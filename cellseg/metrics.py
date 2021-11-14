@@ -16,8 +16,8 @@ def seg_iou(pred_mask: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
 
 def precision_at(pred_masks: Tensor, gt_masks: Tensor, threshold: float) -> float:
     fp = torch.ones(len(gt_masks), dtype=torch.bool)
-    for mask_id, mask in enumerate(pred_masks):
-        iou = seg_iou(mask, gt_masks) > threshold
+    for pred_mask in pred_masks:
+        iou = seg_iou(pred_mask, gt_masks) > threshold
         if iou.sum() != 0:
             gt_mask_idx = iou.short().argmax()
             fp[gt_mask_idx] = False

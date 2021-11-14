@@ -12,7 +12,7 @@ from cellseg.metrics import seg_iou, precision_at, precision
         (0, [0, 0]),
     ],
 )
-def test_seg_iou(inputs_len: int, expected: float) -> None:
+def test_seg_iou(inputs_len: int, expected: list[float]) -> None:
     pred_mask = torch.zeros(4, 4)
     pred_mask[2, 0:inputs_len] = 1
 
