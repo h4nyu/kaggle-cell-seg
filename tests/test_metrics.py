@@ -1,7 +1,7 @@
 import pytest
 import torch
 from torch import Tensor
-from cellseg.metrics import seg_iou, precision_at, precision
+from cellseg.metrics import mask_iou, precision_at, precision
 
 
 @pytest.mark.parametrize(
@@ -12,7 +12,7 @@ from cellseg.metrics import seg_iou, precision_at, precision
         (0, [0, 0]),
     ],
 )
-def test_seg_iou(inputs_len: int, expected: list[float]) -> None:
+def test_mask_iou(inputs_len: int, expected: list[float]) -> None:
     pred_masks = torch.zeros(3, 4, 4)
     pred_masks[0, 2, 0:inputs_len] = 1
 
@@ -20,7 +20,7 @@ def test_seg_iou(inputs_len: int, expected: list[float]) -> None:
     gt_masks[0, 2, 3] = 1
     gt_masks[0, 2, 2] = 1
     gt_masks[0, 2, 1] = 1
-    res = seg_iou(pred_masks, gt_masks)
+    res = mask_iou(pred_masks, gt_masks)
     assert res.shape == (len(pred_masks), len(gt_masks))
     for i, v in enumerate(expected):
         assert res[0][i] == v
