@@ -1,11 +1,12 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from torch import Tensor
 from cellseg.data import get_masks
 import pandas as pd
 from torchvision.io import read_image
 from sklearn.model_selection import StratifiedGroupKFold
 from typing import TypedDict, Optional, cast
+import numpy as np
 
 TrainItem = TypedDict(
     "TrainItem",
@@ -17,13 +18,15 @@ TrainItem = TypedDict(
     },
 )
 
-# def get_fold_indices(dataset:Dataset, n_splits:int, fold:int, seed:Optional[int]) -> list[int]:
-#     splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-#     x = np.arange(len(dataset))
-#     y = dataset.stratums
-#     groups = dataset.groups
-#     return list(splitter.split(x, y, groups))[fold]
 
+def get_fold_indices(
+    dataset: Dataset, n_splits: int = 5, fold: int = 0, seed: int = 0
+) -> tuple[list[int], list[int]]:
+    splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    x = np.arange(len(dataset))
+    y = dataset.stratums
+    groups = dataset.groups
+    return list(splitter.split(x, y, groups))[fold]
 
 
 class CellTrainDataset(Dataset):
@@ -51,8 +54,18 @@ class CellTrainDataset(Dataset):
             labels=labels,
         )
 
-# class TrainSet(Subset):
 
-#     def __init__(self, dataset, n_splits=5, fold=0, seed=0):
-#         indices = get_fold_indices(dataset, n_splits, fold, seed)[0]
-#         super().__init__(dataset, indices)
+class TrainSet(Subset):
+    def __init__(
+        self, dataset: Dataset, n_splits: int = 5, fold: int = 0, seed: int = 0
+    ):
+        indices = get_fold_indices(dataset, n_splits, fold, seed)[0]
+        super().__init__(dataset, indices)
+
+
+class ValidationSet(Subset):
+    def __init__(
+        self, dataset: Dataset, n_splits: int = 5, fold: int = 0, seed: int = 0
+    ):
+        indices = get_fold_indices(dataset, n_splits, fold, seed)[1]
+        super().__init__(dataset, indices)

@@ -2,7 +2,6 @@
 # import pytorch_lightning as pl
 
 
-
 # class SoloLT(pl.LightningModule):
 #     def __init__(self, **kargs) -> None:
 #         super().__init__()
