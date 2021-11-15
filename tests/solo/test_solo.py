@@ -14,7 +14,7 @@ def test_solo() -> None:
     solo = Solo(
         num_classes=num_classes,
         backbone=backbone,
-        out_channels=64,
+        hidden_channels=64,
         grid_size=grid_size,
         category_feat_range=category_feat_range,
         mask_feat_range=mask_feat_range,

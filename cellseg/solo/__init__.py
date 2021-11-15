@@ -4,6 +4,7 @@ from torch import Tensor
 from .heads import Head
 from typing import Protocol
 from cellseg.loss import SigmoidFocalLoss, DiceLoss
+from .adaptors import BatchAdaptor
 
 
 class FPNLike(Protocol):
@@ -12,6 +13,9 @@ class FPNLike(Protocol):
 
     def __call__(self, x: Tensor) -> list[Tensor]:
         ...
+
+
+Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
 
 class Loss:
@@ -47,7 +51,7 @@ class Solo(nn.Module):
     def __init__(
         self,
         backbone: FPNLike,
-        out_channels: int,
+        hidden_channels: int,
         grid_size: int,
         category_feat_range: tuple[int, int],
         mask_feat_range: tuple[int, int],
@@ -58,7 +62,7 @@ class Solo(nn.Module):
         self.mask_feat_range = mask_feat_range
         self.backbone = backbone
         self.category_head = Head(
-            out_channels=out_channels,
+            hidden_channels=hidden_channels,
             num_classes=num_classes,
             channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
@@ -67,7 +71,7 @@ class Solo(nn.Module):
         )
 
         self.mask_head = Head(
-            out_channels=out_channels,
+            hidden_channels=hidden_channels,
             num_classes=grid_size ** 2,
             channels=backbone.channels[mask_feat_range[0] : mask_feat_range[1]],
             reductions=backbone.reductions[mask_feat_range[0] : mask_feat_range[1]],
@@ -82,3 +86,67 @@ class Solo(nn.Module):
         mask_feats = features[self.mask_feat_range[0] : self.mask_feat_range[1]]
         masks = self.mask_head(mask_feats)
         return (category_grid, masks)
+
+
+class TrainStep:
+    def __init__(
+        self,
+        loss: Loss,
+        model: Solo,
+        batch_adaptor: BatchAdaptor,
+    ) -> None:
+        self.loss = loss
+        self.model = model
+        self.bath_adaptor = batch_adaptor
+
+    def __call__(self, batch: Batch) -> Tensor:
+        self.model.train()
+        images, gt_mask_batch, gt_label_batch = batch
+        gt_category_grids, mask_index = self.bath_adaptor(
+            mask_batch=gt_mask_batch, label_batch=gt_label_batch
+        )
+        pred_category_grids, pred_all_masks = self.model(images)
+        loss = self.loss(
+            (
+                pred_category_grids,
+                pred_all_masks,
+            ),
+            (
+                gt_category_grids,
+                gt_mask_batch,
+                mask_index,
+            ),
+        )
+        return loss
+
+
+class ValidationStep:
+    def __init__(
+        self,
+        loss: Loss,
+        model: Solo,
+        batch_adaptor: BatchAdaptor,
+    ) -> None:
+        self.loss = loss
+        self.model = model
+        self.bath_adaptor = batch_adaptor
+
+    def __call__(self, batch: Batch) -> Tensor:
+        self.model.eval()
+        images, gt_mask_batch, gt_label_batch = batch
+        gt_category_grids, mask_index = self.bath_adaptor(
+            mask_batch=gt_mask_batch, label_batch=gt_label_batch
+        )
+        pred_category_grids, pred_all_masks = self.model(images)
+        loss = self.loss(
+            (
+                pred_category_grids,
+                pred_all_masks,
+            ),
+            (
+                gt_category_grids,
+                gt_mask_batch,
+                mask_index,
+            ),
+        )
+        return loss

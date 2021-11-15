@@ -3,6 +3,43 @@ name: solo-baseline
 gpus: 1
 mixed_presision: false
 
+
+model:
+  _target_: cellseg.solo.Solo
+  grid_size: 64
+  category_feat_range: [4, 6]
+  mask_feat_range: [0, 4]
+  hidden_channels: 64
+  backbone:
+    _target_: cellseg.backbones.EfficientNetFPN
+    name: "efficientnet-b2"
+
+batch_adaptor:
+  _target_: cellseg.solo.adaptors.BatchAdaptor
+
+loss:
+  _target_: cellseg.solo.Loss
+
+optimizer:
+  _target_: torch.optim.SGD
+  lr: &lr 1.0e-2
+  momentum: 0.95
+  nesterov: true
+
+train:
+  batch_size: 16
+
+dataset: &dataset
+  _target_: cellseg.dataset.CellTrainDataset
+
+train_set: 
+  _target_: cellseg.dataset.TrainSet
+  dataset: *dataset
+
+validation_set: 
+  _target_: cellseg.dataset.ValidationSet
+  dataset: *dataset
+
 # dataset:
 #   image:
 #     size: 512

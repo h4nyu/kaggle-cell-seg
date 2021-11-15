@@ -2,6 +2,8 @@ import os
 from omegaconf import OmegaConf
 import enum
 
+conf = OmegaConf.load("./config.yml")
+
 
 class CellType(str, enum.Enum):
     shsy5y = "shsy5y"
@@ -15,13 +17,6 @@ appearance_rates = {
     CellType.cort: 320 / 60,
 }
 
-
-conf = OmegaConf.load("./config.yml")
-
-
-ROOT_PATH = "/store"
-TRAIN_FILE_NAME = "train.csv"
-
-TRAIN_FILE_PATH = os.path.join(ROOT_PATH, TRAIN_FILE_NAME)
-
-TRAIN_PATH = os.path.join(ROOT_PATH, "train")
+root_path = "/store"
+train_file_path = os.path.join(root_path, "train.csv")
+train_image_path = os.path.join(root_path, "train")

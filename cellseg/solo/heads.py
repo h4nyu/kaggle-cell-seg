@@ -8,7 +8,7 @@ from .coord_conv import CoordConv
 class Head(nn.Module):
     def __init__(
         self,
-        out_channels: int,
+        hidden_channels: int,
         num_classes: int,
         channels: list[int] = [],
         reductions: list[int] = [],
@@ -17,8 +17,8 @@ class Head(nn.Module):
         self.convs_all_levels = nn.ModuleList()
         self.convs_all_levels.append(
             CovNormAct(
-                channels[0],
-                out_channels,
+                in_channels=channels[0],
+                out_channels=hidden_channels,
             ),
         )
         down_counts = torch.log2(torch.tensor(reductions)).long()
@@ -30,8 +30,8 @@ class Head(nn.Module):
             convs_per_level.add_module(
                 f"conv{level_idx}",
                 CovNormAct(
-                    in_channels + 2,
-                    out_channels,
+                    in_channels=in_channels + 2,
+                    out_channels=hidden_channels,
                 ),
             )
             for j in range(down_count):
@@ -39,8 +39,8 @@ class Head(nn.Module):
                     convs_per_level.add_module(
                         f"conv{j}",
                         CovNormAct(
-                            out_channels,
-                            out_channels,
+                            in_channels=hidden_channels,
+                            out_channels=hidden_channels,
                         ),
                     )
                 upsample = nn.Upsample(
@@ -51,7 +51,7 @@ class Head(nn.Module):
 
         self.coord_conv = CoordConv()
         self.out_conv = CovNormAct(
-            in_channels=out_channels,
+            in_channels=hidden_channels,
             out_channels=num_classes,
             kernel_size=1,
             padding=0,

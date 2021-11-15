@@ -3,7 +3,6 @@ from torch import Tensor
 import os
 import torch
 import torch.nn.functional as F
-from cellseg.config import ROOT_PATH
 from cellseg.solo.adaptors import (
     ToCategoryGrid,
     MasksToCenters,

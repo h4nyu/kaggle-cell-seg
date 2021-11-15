@@ -13,7 +13,7 @@ from cellseg.solo.heads import Head
 )
 def test_mask_head(channels: list[int], reductions: list[int]) -> None:
     in_channels = 64
-    out_channels = 64
+    hidden_channels = 64
     base_resolution = 512
     num_classes = 3 * 3
 
@@ -22,7 +22,7 @@ def test_mask_head(channels: list[int], reductions: list[int]) -> None:
         for (c, s) in zip(channels, reductions)
     ]
     head = Head(
-        out_channels=out_channels,
+        hidden_channels=hidden_channels,
         num_classes=num_classes,
         channels=channels,
         reductions=reductions,

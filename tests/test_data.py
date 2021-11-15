@@ -1,13 +1,13 @@
 import pytest
 import itertools
 from cellseg.data import decode_rle_mask, get_masks, draw_save
-from cellseg.config import TRAIN_FILE_PATH, TRAIN_PATH, ROOT_PATH, CellType
+from cellseg.config import train_file_path
 import pandas as pd
-from torchvision.io import read_image
+from torchvision.io import read_image, CellType, root_path
 import os
 import matplotlib.pyplot as plt
 
-train_df = pd.read_csv(TRAIN_FILE_PATH)
+train_df = pd.read_csv(train_file_path)
 first_row = train_df.loc[0]
 
 
@@ -34,9 +34,9 @@ def test_get_masks_and_plot(image_id: str, cell_type: CellType) -> None:
         assert masks.shape[0] == sum(
             (train_df["id"] == image_id) & (train_df["cell_type"] == cell_type)
         )
-        img = read_image(os.path.join(ROOT_PATH, "train", f"{image_id}.png"))
+        img = read_image(os.path.join(root_path, "train", f"{image_id}.png"))
         draw_save(
             img / 255,
-            os.path.join(ROOT_PATH, f"test-plot-{image_id}-{cell_type}.png"),
+            os.path.join(root_path, f"test-plot-{image_id}-{cell_type}.png"),
             masks=masks,
         )
