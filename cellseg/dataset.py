@@ -4,6 +4,7 @@ from torch import Tensor
 from cellseg.data import get_masks
 import pandas as pd
 from torchvision.io import read_image
+from sklearn.model_selection import StratifiedGroupKFold
 from typing import TypedDict, Optional, cast
 
 TrainItem = TypedDict(
@@ -15,6 +16,14 @@ TrainItem = TypedDict(
         "labels": Tensor,
     },
 )
+
+# def get_fold_indices(dataset:Dataset, n_splits:int, fold:int, seed:Optional[int]) -> list[int]:
+#     splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+#     x = np.arange(len(dataset))
+#     y = dataset.stratums
+#     groups = dataset.groups
+#     return list(splitter.split(x, y, groups))[fold]
+
 
 
 class CellTrainDataset(Dataset):
@@ -41,3 +50,9 @@ class CellTrainDataset(Dataset):
             masks=masks,
             labels=labels,
         )
+
+# class TrainSet(Subset):
+
+#     def __init__(self, dataset, n_splits=5, fold=0, seed=0):
+#         indices = get_fold_indices(dataset, n_splits, fold, seed)[0]
+#         super().__init__(dataset, indices)

@@ -1,0 +1,10 @@
+
+name: solo-baseline
+gpus: 1
+mixed_presision: false
+
+# dataset:
+#   image:
+#     size: 512
+#     channels: 3
+#   num_classes: 1

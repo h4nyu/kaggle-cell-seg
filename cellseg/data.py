@@ -19,7 +19,7 @@ def decode_rle_mask(rle_mask: str, shape: tuple[int, int]) -> Tensor:
     starts, lengths = [
         np.asarray(x, dtype=int) for x in (mask_nums[0:][::2], mask_nums[1:][::2])
     ]
-    ends = (starts - 1) + lengths  # start is 1-based indexing
+    ends = (starts - 1) + lengths  # start is 1-based indexing 
     mask = np.zeros((shape[0] * shape[1]), dtype=np.uint8)
     for start, end in zip(starts, ends):
         mask[start:end] = 1

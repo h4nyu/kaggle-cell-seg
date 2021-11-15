@@ -1,4 +1,14 @@
+name: aaaa
+
+
 data:
   root: /store
   train_annotaion: train.csv
   train_image_dir: train
+loader:
+  train:
+    batch_size: 16
+    num_workers: 6
+    # dataset:
+    #   _target_
+
