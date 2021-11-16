@@ -19,7 +19,6 @@ def main(cfg: DictConfig) -> None:
     logger = getLogger(cfg.name)
     backbone = EfficientNetFPN(**cfg.backbone)
     model = Solo(**cfg.model, backbone=backbone).to(cfg.device)
-    optimizer = optim.SGD(model.parameters(), **cfg.optimizer)
     criterion = Criterion()
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
@@ -27,6 +26,7 @@ def main(cfg: DictConfig) -> None:
         original_size=cfg.original_size,
     )
     train_step = TrainStep(
+        optimizer=optim.SGD(model.parameters(), **cfg.optimizer),
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
@@ -49,7 +49,7 @@ def main(cfg: DictConfig) -> None:
             batch = to_device(*batch)
             train_log = train_step(batch)
 
-        for batch_idx, batch in enumerate(validation_loader):
+        for batch_idx, batch in enumerate(val_loader):
             batch = to_device(*batch)
             validation_log = train_step(batch)
 

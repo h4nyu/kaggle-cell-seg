@@ -6,7 +6,7 @@ from typing import Protocol
 from cellseg.loss import SigmoidFocalLoss, DiceLoss
 from .adaptors import BatchAdaptor
 from torch.cuda.amp import GradScaler, autocast
-
+from typing import Any
 
 
 class FPNLike(Protocol):
@@ -104,8 +104,7 @@ class TrainStep:
         self.bath_adaptor = batch_adaptor
         self.optimizer = optimizer
         self.use_amp = use_amp
-        self.scale = GradScaler()
-
+        self.scaler = GradScaler()
 
     def __call__(self, batch: Batch) -> dict[str, float]:
         self.model.train()
@@ -127,10 +126,10 @@ class TrainStep:
                     mask_index,
                 ),
             )
-            scaler.scale(loss).backward()
-            scaler.step(self.optimizer)
-            scaler.update()
-            return dict(loss=loss.item())
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            return dict(loss=float(loss.item()))
 
 
 class ValidationStep:
@@ -163,4 +162,4 @@ class ValidationStep:
                 mask_index,
             ),
         )
-        return loss
+        return dict(loss=loss.item())
