@@ -7,6 +7,7 @@ import torchvision.transforms.functional as F
 from torchvision.utils import draw_segmentation_masks, save_image
 from cellseg.config import CellType
 import pandas as pd
+from typing import Any, Union
 
 
 def seed(num: int) -> None:
@@ -57,3 +58,17 @@ def draw_save(
     else:
         plot = image
     save_image(plot, path)
+
+
+class ToDevice:
+    def __init__(
+        self,
+        device: str,
+    ) -> None:
+        self.device = device
+
+    def __call__(self, *args: Union[Tensor, list[Tensor]]) -> Any:
+        return tuple(
+            [i.to(self.device) for i in x] if isinstance(x, list) else x.to(self.device)
+            for x in args
+        )

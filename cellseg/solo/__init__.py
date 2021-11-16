@@ -18,7 +18,7 @@ class FPNLike(Protocol):
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
 
-class Loss:
+class Criterion:
     def __init__(
         self,
     ) -> None:
@@ -91,11 +91,11 @@ class Solo(nn.Module):
 class TrainStep:
     def __init__(
         self,
-        loss: Loss,
+        criterion: Criterion,
         model: Solo,
         batch_adaptor: BatchAdaptor,
     ) -> None:
-        self.loss = loss
+        self.criterion = criterion
         self.model = model
         self.bath_adaptor = batch_adaptor
 
@@ -106,7 +106,7 @@ class TrainStep:
             mask_batch=gt_mask_batch, label_batch=gt_label_batch
         )
         pred_category_grids, pred_all_masks = self.model(images)
-        loss = self.loss(
+        loss = self.criterion(
             (
                 pred_category_grids,
                 pred_all_masks,
@@ -123,11 +123,11 @@ class TrainStep:
 class ValidationStep:
     def __init__(
         self,
-        loss: Loss,
+        criterion: Criterion,
         model: Solo,
         batch_adaptor: BatchAdaptor,
     ) -> None:
-        self.loss = loss
+        self.criterion = criterion
         self.model = model
         self.bath_adaptor = batch_adaptor
 
@@ -138,7 +138,7 @@ class ValidationStep:
             mask_batch=gt_mask_batch, label_batch=gt_label_batch
         )
         pred_category_grids, pred_all_masks = self.model(images)
-        loss = self.loss(
+        loss = self.criterion(
             (
                 pred_category_grids,
                 pred_all_masks,

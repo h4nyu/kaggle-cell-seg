@@ -3,6 +3,7 @@ name: solo-baseline
 gpus: 1
 mixed_presision: false
 num_epochs: 100
+device: cuda
 
 num_classes: 1
 grid_size: 64
@@ -32,7 +33,7 @@ optimizer:
   nesterov: true
 
 train_loader:
-  batch_size: 16
+  batch_size: 2 
   shuffle: true
   num_workers: 6
 

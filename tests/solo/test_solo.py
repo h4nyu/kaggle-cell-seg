@@ -1,5 +1,5 @@
 import torch
-from cellseg.solo import Solo, Loss
+from cellseg.solo import Solo, Criterion
 from cellseg.backbones import EfficientNetFPN
 
 
@@ -44,7 +44,7 @@ def test_loss() -> None:
     gt_mask_batch = [torch.zeros(3, original_size, original_size)]
     mask_index_batch = [torch.tensor([1, 2, 3])]  # same len to mask_batch item
 
-    loss = Loss()
+    loss = Criterion()
     loss_value = loss(
         inputs=(pred_category_grids, all_masks),
         targets=(gt_category_grids, gt_mask_batch, mask_index_batch),
