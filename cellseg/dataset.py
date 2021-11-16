@@ -1,10 +1,11 @@
 import torch
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Dataset
 from torch import Tensor
 from cellseg.data import get_masks
 import pandas as pd
 from torchvision.io import read_image
 from sklearn.model_selection import StratifiedGroupKFold
+from sklearn.preprocessing import LabelEncoder
 from typing import TypedDict, Optional, cast
 import numpy as np
 
@@ -19,14 +20,28 @@ TrainItem = TypedDict(
 )
 
 
+def collate_fn(batch: list[TrainItem]) -> tuple[Tensor, list[Tensor], list[Tensor]]:
+    images: list[Tensor] = []
+    mask_batch: list[Tensor] = []
+    label_batch: list[Tensor] = []
+    for row in batch:
+        images.append(row["image"])
+        mask_batch.append(row["masks"])
+        label_batch.append(row["labels"])
+    return (
+        torch.stack(images),
+        mask_batch,
+        label_batch,
+    )
+
+
 def get_fold_indices(
-    dataset: Dataset, n_splits: int = 5, fold: int = 0, seed: int = 0
+    dataset: Dataset, n_splits: int = 5, index: int = 0, seed: int = 0
 ) -> tuple[list[int], list[int]]:
     splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     x = np.arange(len(dataset))
     y = dataset.stratums
-    groups = dataset.groups
-    return list(splitter.split(x, y, groups))[fold]
+    return list(splitter.split(x, y))[index]
 
 
 class CellTrainDataset(Dataset):
@@ -34,8 +49,12 @@ class CellTrainDataset(Dataset):
         self, img_dir: str = "/store/train", train_csv: str = "/store/train.csv"
     ) -> None:
         self.img_dir = img_dir
-        self.df = pd.read_csv(train_csv)
+        df = pd.read_csv(train_csv)
+        self.df = df
         self.indecies = self.df["id"].unique()
+        self.stratums = LabelEncoder().fit_transform(
+            [df[df["id"] == id].iloc[0]["cell_type"] for id in self.indecies]
+        )
 
     def __len__(self) -> int:
         return len(self.indecies)
@@ -53,19 +72,3 @@ class CellTrainDataset(Dataset):
             masks=masks,
             labels=labels,
         )
-
-
-class TrainSet(Subset):
-    def __init__(
-        self, dataset: Dataset, n_splits: int = 5, fold: int = 0, seed: int = 0
-    ):
-        indices = get_fold_indices(dataset, n_splits, fold, seed)[0]
-        super().__init__(dataset, indices)
-
-
-class ValidationSet(Subset):
-    def __init__(
-        self, dataset: Dataset, n_splits: int = 5, fold: int = 0, seed: int = 0
-    ):
-        indices = get_fold_indices(dataset, n_splits, fold, seed)[1]
-        super().__init__(dataset, indices)

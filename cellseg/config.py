@@ -1,8 +1,5 @@
 import os
-from omegaconf import OmegaConf
 import enum
-
-conf = OmegaConf.load("./config.yml")
 
 
 class CellType(str, enum.Enum):
