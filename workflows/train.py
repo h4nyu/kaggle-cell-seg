@@ -1,14 +1,13 @@
 import hydra
 from torch import Tensor
 from omegaconf import DictConfig
-import pytorch_lightning as pl
 from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger
 from cellseg.solo import Solo, TrainStep, Criterion
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.backbones import EfficientNetFPN
-from cellseg.dataset import get_fold_indices, CellTrainDataset, collate_fn
+from cellseg.dataset import get_fold_indices, CellTrainDataset, collate_fn, Tranform
 from cellseg.data import ToDevice
 from torch import optim
 from torch.utils.data import Subset, DataLoader
@@ -22,7 +21,7 @@ def main(cfg: DictConfig) -> None:
     criterion = Criterion()
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
-        grid_size=cfg.grid_size,
+        grid_size=cfg.model.grid_size,
         original_size=cfg.original_size,
     )
     train_step = TrainStep(
@@ -31,7 +30,12 @@ def main(cfg: DictConfig) -> None:
         criterion=criterion,
         batch_adaptor=batch_adaptor,
     )
-    dataset = CellTrainDataset(**cfg.dataset)
+    dataset = CellTrainDataset(
+        **cfg.dataset,
+        transform=Tranform(
+            original_size=cfg.original_size,
+        )
+    )
     train_indecies, validation_indecies = get_fold_indices(dataset, **cfg.fold)
     train_loader = DataLoader(
         Subset(dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader

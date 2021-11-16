@@ -44,8 +44,8 @@ def get_masks(
 
 
 def draw_save(
-    image: Tensor,
     path: str,
+    image: Tensor,
     masks: Optional[Tensor] = None,
 ) -> None:
     if image.shape[0] == 1:

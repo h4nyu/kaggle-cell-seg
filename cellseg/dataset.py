@@ -6,8 +6,11 @@ import pandas as pd
 from torchvision.io import read_image
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.preprocessing import LabelEncoder
-from typing import TypedDict, Optional, cast
+from typing import TypedDict, Optional, cast, Callable, Any
 import numpy as np
+import cv2
+import albumentations as A
+from albumentations.pytorch.transforms import ToTensorV2
 
 TrainItem = TypedDict(
     "TrainItem",
@@ -18,6 +21,25 @@ TrainItem = TypedDict(
         "labels": Tensor,
     },
 )
+
+
+class Tranform:
+    def __init__(self, original_size: int):
+
+        self.transform = A.Compose(
+            [
+                A.Resize(
+                    width=original_size,
+                    height=original_size,
+                    interpolation=cv2.INTER_LINEAR,
+                    p=1,
+                ),
+                ToTensorV2(),
+            ]
+        )
+
+    def __call__(self, *args: Any, **kargs: Any) -> Any:
+        return self.transform(*args, **kargs)
 
 
 def collate_fn(batch: list[TrainItem]) -> tuple[Tensor, list[Tensor], list[Tensor]]:
@@ -46,7 +68,10 @@ def get_fold_indices(
 
 class CellTrainDataset(Dataset):
     def __init__(
-        self, img_dir: str = "/store/train", train_csv: str = "/store/train.csv"
+        self,
+        img_dir: str = "/store/train",
+        train_csv: str = "/store/train.csv",
+        transform: Optional[Callable] = None,
     ) -> None:
         self.img_dir = img_dir
         df = pd.read_csv(train_csv)
@@ -55,6 +80,7 @@ class CellTrainDataset(Dataset):
         self.stratums = LabelEncoder().fit_transform(
             [df[df["id"] == id].iloc[0]["cell_type"] for id in self.indecies]
         )
+        self.transform = ToTensorV2() if transform is None else transform
 
     def __len__(self) -> int:
         return len(self.indecies)
@@ -65,7 +91,17 @@ class CellTrainDataset(Dataset):
         if masks is None:
             return None
         labels = torch.zeros(masks.shape[0])
-        image = read_image(f"{self.img_dir}/{image_id}.png")
+        image = cv2.imread(f"{self.img_dir}/{image_id}.png")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        transformed = self.transform(
+            image=image,
+            masks=[m.numpy() for m in masks.short().unbind()],
+            labels=labels.numpy(),
+        )
+        image = transformed["image"] / 255
+        masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
+        labels = torch.from_numpy(transformed["labels"])
         return dict(
             id=image_id,
             image=image,

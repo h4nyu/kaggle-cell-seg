@@ -17,8 +17,10 @@ class MasksToCenters:
         self,
         masks: Tensor,
     ) -> Tensor:
+        _, h, w = masks.shape
         boxes = masks_to_boxes(masks)
-        return box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2]
+        cxcy = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2]
+        return cxcy
 
 
 class CentersToGridIndex:
@@ -32,7 +34,7 @@ class CentersToGridIndex:
         self,
         centers: Tensor,
     ) -> Tensor:
-        return (centers[:, 1] * self.grid_size + centers[:, 0]).long()
+        return centers[:, 1].long() * self.grid_size + centers[:, 0].long()
 
 
 class ToCategoryGrid:
@@ -45,6 +47,7 @@ class ToCategoryGrid:
         self.grid_size = grid_size
         self.to_index = CentersToGridIndex(self.grid_size)
 
+    @torch.no_grad()
     def __call__(
         self,
         centers: Tensor,

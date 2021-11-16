@@ -24,7 +24,6 @@ class SigmoidFocalLoss:
 
         pos_mask = (targets == 1).float()
         neg_mask = (targets == 0).float()
-
         pos_weight = (pos_mask * torch.pow(1 - prob, self.gamma)).detach()
         pos_loss = -pos_weight * torch.log(prob)  # / (torch.sum(pos_weight) + 1e-4)
 
