@@ -45,10 +45,13 @@ def main(cfg: DictConfig) -> None:
 
     for epoch in range(cfg.num_epochs):  # loop over the dataset multiple times
         running_loss = 0.0
-        for batch_idx, batch in enumerate(train_loader, 0):
+        for batch_idx, batch in enumerate(train_loader):
             batch = to_device(*batch)
-            loss = train_step(batch)
-            print(loss)
+            train_log = train_step(batch)
+
+        for batch_idx, batch in enumerate(validation_loader):
+            batch = to_device(*batch)
+            validation_log = train_step(batch)
 
 
 if __name__ == "__main__":
