@@ -5,6 +5,15 @@ mixed_presision: false
 num_epochs: 100
 device: cuda
 
+data:
+  root_path: /store
+  train_file_path: /store/train.csv
+  train_images_path: /store/train
+  cell_types:
+    - shsy5y 
+    - astro
+    - cort
+
 num_classes: 1
 original_size: 480
 fold:

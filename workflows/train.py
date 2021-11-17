@@ -7,8 +7,13 @@ from logging import getLogger
 from cellseg.solo import Solo, TrainStep, Criterion
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.backbones import EfficientNetFPN
-from cellseg.dataset import get_fold_indices, CellTrainDataset, collate_fn, Tranform
-from cellseg.data import ToDevice
+from cellseg.data import (
+    ToDevice,
+    get_fold_indices,
+    CellTrainDataset,
+    collate_fn,
+    Tranform,
+)
 from torch import optim
 from torch.utils.data import Subset, DataLoader
 

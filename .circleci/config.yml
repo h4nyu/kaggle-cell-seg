@@ -39,6 +39,11 @@ jobs:
           name: Lint
           command: |
             docker-compose run --rm app mypy
+
+      - run:
+          name: Test
+          command: |
+            docker-compose run --rm app pytest
             
 workflows:
   version: 2
