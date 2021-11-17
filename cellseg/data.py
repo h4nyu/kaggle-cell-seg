@@ -12,7 +12,7 @@ import cv2
 from torch.utils.data import Dataset
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import StratifiedGroupKFold
+from sklearn.model_selection import StratifiedKFold
 import albumentations as A
 
 
@@ -125,14 +125,6 @@ def collate_fn(batch: list[TrainItem]) -> tuple[Tensor, list[Tensor], list[Tenso
     )
 
 
-def get_fold_indices(
-    dataset: Dataset, n_splits: int = 5, index: int = 0, seed: int = 0
-) -> tuple[list[int], list[int]]:
-    splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    x = np.arange(len(dataset))
-    y = dataset.stratums
-    return list(splitter.split(x, y))[index]
-
 
 class CellTrainDataset(Dataset):
     def __init__(
@@ -176,3 +168,12 @@ class CellTrainDataset(Dataset):
             masks=masks,
             labels=labels,
         )
+
+def get_fold_indices(
+    dataset: CellTrainDataset, n_splits: int = 5, index: int = 0, seed: int = 0
+) -> tuple[list[int], list[int]]:
+    splitter = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    x = np.arange(len(dataset))
+    y = dataset.stratums
+    return list(splitter.split(x, y))[index]
+
