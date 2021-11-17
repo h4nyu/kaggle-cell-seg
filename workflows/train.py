@@ -5,6 +5,7 @@ import os
 from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger
+import torch_optimizer as optim
 from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.backbones import EfficientNetFPN
@@ -16,7 +17,6 @@ from cellseg.data import (
     collate_fn,
     Tranform,
 )
-from torch import optim
 from torch.utils.data import Subset, DataLoader
 
 
@@ -27,19 +27,19 @@ def main(cfg: DictConfig) -> None:
     backbone = EfficientNetFPN(**cfg.backbone)
     checkpoint = Checkpoint[Solo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
-        default_score=float("inf")
+        default_score=float("inf"),
     )
     model = Solo(**cfg.model, backbone=backbone)
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
-    criterion = Criterion()
+    criterion = Criterion(**cfg.criterion)
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
         grid_size=cfg.model.grid_size,
         original_size=cfg.original_size,
     )
     train_step = TrainStep(
-        optimizer=optim.SGD(model.parameters(), **cfg.optimizer),
+        optimizer=optim.AdaBound(model.parameters(), **cfg.optimizer),
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
@@ -68,22 +68,30 @@ def main(cfg: DictConfig) -> None:
     )
     to_device = ToDevice(cfg.device)
 
-    for epoch in range(cfg.num_epochs):  # loop over the dataset multiple times
+    for epoch in range(cfg.num_epochs):
         running_loss = 0.0
         for batch_idx, batch in enumerate(train_loader):
             batch = to_device(*batch)
             train_log = train_step(batch)
             progress = f"{batch_idx}/{train_len}"
+            running_loss += train_log["loss"]
             logger.info(f"{epoch=} {progress=} {train_log=}")
 
+        train_loss = running_loss / train_len
+        logger.info(f"{epoch=} {progress=} {train_loss=}")
+
+        running_loss = 0.0
         for batch_idx, batch in enumerate(val_loader):
             batch = to_device(*batch)
             validation_log = validation_step(batch)
             progress = f"{batch_idx}/{validation_len}"
             logger.info(f"{epoch=} {progress=} {validation_log=}")
             val_loss = validation_log["loss"]
+            running_loss += val_loss
             if val_loss < score:
                 score = checkpoint.save(model, val_loss)
+        val_loss = running_loss / validation_len
+        logger.info(f"{epoch=} {progress=} {val_loss=}")
 
 
 if __name__ == "__main__":

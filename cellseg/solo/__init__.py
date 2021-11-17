@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from .heads import Head
-from typing import Protocol
+from typing import Protocol, TypedDict
 from cellseg.loss import SigmoidFocalLoss, DiceLoss
 from .adaptors import BatchAdaptor
 from torch.cuda.amp import GradScaler, autocast
@@ -24,9 +24,13 @@ Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, lab
 class Criterion:
     def __init__(
         self,
+        mask_weight: float = 1.0,
+        category_weight: float = 1.0,
     ) -> None:
         self.category_loss = SigmoidFocalLoss()
         self.mask_loss = DiceLoss()
+        self.category_weight = category_weight
+        self.mask_weight = mask_weight
 
     def __call__(
         self,
@@ -34,7 +38,7 @@ class Criterion:
         targets: tuple[
             Tensor, list[Tensor], list[Tensor]
         ],  # gt_cate_grids, mask_batch, mask_index_batch
-    ) -> Tensor:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         pred_category_grids, all_masks = inputs
         gt_category_grids, gt_mask_batch, mask_index_batch = targets
         device = pred_category_grids.device
@@ -47,9 +51,9 @@ class Criterion:
         ):
             filtered_masks = pred_masks[mask_index]
             mask_loss += self.mask_loss(inputs=filtered_masks, targets=gt_masks)
-        loss = category_loss + mask_loss
+        loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         loss = mask_loss
-        return loss
+        return loss, category_loss, mask_loss
 
 
 class Solo(nn.Module):
@@ -122,7 +126,7 @@ class TrainStep:
                 mask_batch=gt_mask_batch, label_batch=gt_label_batch
             )
             pred_category_grids, pred_all_masks = self.model(images)
-            loss = self.criterion(
+            loss, category_loss, mask_loss = self.criterion(
                 (
                     pred_category_grids,
                     pred_all_masks,
@@ -137,7 +141,11 @@ class TrainStep:
             self.optimizer.zero_grad()
             self.scaler.step(self.optimizer)
             self.scaler.update()
-            return dict(loss=float(loss.item()))
+        return dict(
+            loss=loss.item(),
+            category_loss=category_loss.item(),
+            mask_loss=mask_loss.item(),
+        )
 
 
 class ValidationStep:
@@ -159,7 +167,7 @@ class ValidationStep:
             mask_batch=gt_mask_batch, label_batch=gt_label_batch
         )
         pred_category_grids, pred_all_masks = self.model(images)
-        loss = self.criterion(
+        loss, category_loss, mask_loss = self.criterion(
             (
                 pred_category_grids,
                 pred_all_masks,
@@ -170,4 +178,8 @@ class ValidationStep:
                 mask_index,
             ),
         )
-        return dict(loss=loss.item())
+        return dict(
+            loss=loss.item(),
+            category_loss=category_loss.item(),
+            mask_loss=mask_loss.item(),
+        )
