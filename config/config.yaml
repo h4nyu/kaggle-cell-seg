@@ -45,6 +45,6 @@ train_loader:
   num_workers: 6
 
 validation_loader:
-  batch_size: 16
+  batch_size: 8
   shuffle: false
   num_workers: 6

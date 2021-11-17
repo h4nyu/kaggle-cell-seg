@@ -22,7 +22,6 @@ from torch.utils.data import Subset, DataLoader
 @hydra.main(config_path="/app/config", config_name="config")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
-    torch.manual_seed(cfg.seed)
     logger = getLogger(cfg.name)
     backbone = EfficientNetFPN(**cfg.backbone)
     model = Solo(**cfg.model, backbone=backbone).to(cfg.device)
