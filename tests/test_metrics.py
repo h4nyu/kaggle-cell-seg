@@ -1,7 +1,7 @@
 import pytest
 import torch
 from torch import Tensor
-from cellseg.metrics import mask_iou, precision_at, precision
+from cellseg.metrics import MaskIou, precision_at, precision
 
 
 @pytest.mark.parametrize(
@@ -13,6 +13,7 @@ from cellseg.metrics import mask_iou, precision_at, precision
     ],
 )
 def test_mask_iou(inputs_len: int, expected: list[float]) -> None:
+    mask_iou = MaskIou()
     pred_masks = torch.zeros(3, 4, 4)
     pred_masks[0, 2, 0:inputs_len] = 1
 
@@ -26,7 +27,23 @@ def test_mask_iou(inputs_len: int, expected: list[float]) -> None:
         assert res[0][i] == v
 
 
+def test_simple_batch_is_same() -> None:
+    pred_masks = torch.zeros(3, 4, 4)
+    pred_masks[0, 2, 0:2] = 1
+
+    gt_masks = torch.zeros(2, 4, 4)
+    gt_masks[0, 2, 3] = 1
+    gt_masks[0, 2, 2] = 1
+    gt_masks[0, 2, 1] = 1
+    simple = MaskIou(use_batch=False)
+    batch = MaskIou(use_batch=True)
+    for s, b in zip(simple(pred_masks, gt_masks), batch(pred_masks, gt_masks)):
+        for s0, b0 in zip(s, b):
+            assert s0 == b0
+
+
 def test_large_mask_iou() -> None:
+    mask_iou = MaskIou(use_batch=False)
     pred_masks = torch.zeros(10, 500, 500)
     gt_masks = torch.zeros(400, 500, 500)
     res = mask_iou(pred_masks, gt_masks)
