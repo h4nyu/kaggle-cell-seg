@@ -27,7 +27,7 @@ def test_mask_iou(inputs_len: int, expected: list[float]) -> None:
 
 
 def test_large_mask_iou() -> None:
-    pred_masks = torch.zeros(2, 500, 500)
+    pred_masks = torch.zeros(500, 500, 500)
     gt_masks = torch.zeros(400, 500, 500)
     res = mask_iou(pred_masks, gt_masks)
     assert res.shape == (len(pred_masks), len(gt_masks))
