@@ -39,11 +39,11 @@ optimizer:
   nesterov: true
 
 train_loader:
-  batch_size: 4 
+  batch_size: 3 
   shuffle: true
   num_workers: 6
 
 validation_loader:
-  batch_size: 4
+  batch_size: 3
   shuffle: false
   num_workers: 6
