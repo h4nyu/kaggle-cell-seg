@@ -50,7 +50,6 @@ def test_large_mask_iou() -> None:
     assert res.shape == (len(pred_masks), len(gt_masks))
 
 
-
 def test_precision_at() -> None:
     mask_ap = MaskAP()
     inputs = torch.zeros(2, 4, 4)
@@ -74,6 +73,7 @@ def test_precision() -> None:
     )
     assert mask_ap.value == 1.0
 
+
 def test_reduce_size() -> None:
     masks = torch.load("/app/data/masks-0030fd0e6378.pth")
     reduce_mask_ap = MaskAP(reduce_size=8)
@@ -89,4 +89,3 @@ def test_reduce_size() -> None:
         gt_masks=masks,
     )
     assert reduce_mask_ap.value == full_mask_ap.value
-

@@ -8,6 +8,7 @@ from logging import getLogger
 import torch_optimizer as optim
 from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep
 from cellseg.solo.adaptors import BatchAdaptor
+from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
 from cellseg.util import seed_everything, Checkpoint
 from cellseg.data import (
@@ -75,7 +76,6 @@ def main(cfg: DictConfig) -> None:
             train_log = train_step(batch)
             progress = f"{batch_idx}/{train_len}"
             running_loss += train_log["loss"]
-            logger.info(f"{epoch=} {progress=} {train_log=}")
 
         train_loss = running_loss / train_len
         logger.info(f"{epoch=} {progress=} {train_loss=}")
@@ -86,10 +86,10 @@ def main(cfg: DictConfig) -> None:
             batch = to_device(*batch)
             validation_log = validation_step(batch)
             progress = f"{batch_idx}/{validation_len}"
-            logger.info(f"{epoch=} {progress=} {validation_log=}")
             val_loss = validation_log["loss"]
             running_loss += val_loss
             if val_loss < score:
+                logger.info(f"update model!!")
                 score = checkpoint.save(model, val_loss)
         val_loss = running_loss / validation_len
         logger.info(f"{epoch=} {progress=} {val_loss=}")

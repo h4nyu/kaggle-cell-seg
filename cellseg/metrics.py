@@ -92,7 +92,7 @@ class MaskAP:
             split_idx = pred_masks.shape[0]
             all_masks = F.interpolate(
                 torch.cat([pred_masks, gt_masks]).unsqueeze(0).float(),
-                scale_factor=1/self.reduce_size,
+                scale_factor=1 / self.reduce_size,
             )[0].bool()
             pred_masks = all_masks[:split_idx]
             gt_masks = all_masks[split_idx:]

@@ -45,8 +45,8 @@ def test_loss() -> None:
     mask_index_batch = [torch.tensor([1, 2, 3])]  # same len to mask_batch item
 
     loss = Criterion()
-    loss_value = loss(
+    loss_value, category_loss, mask_loss = loss(
         inputs=(pred_category_grids, all_masks),
         targets=(gt_category_grids, gt_mask_batch, mask_index_batch),
     )
-    assert loss_value == 0
+    assert loss_value == category_loss == mask_loss == 0
