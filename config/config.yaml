@@ -1,7 +1,6 @@
 
 name: solo-baseline
-gpus: 1
-mixed_presision: false
+mixed_presision: true
 num_epochs: 100
 device: cuda
 
@@ -15,7 +14,7 @@ data:
     - cort
 
 num_classes: 1
-original_size: 480
+original_size: 384
 fold:
   index: 0
   n_splits: 5
@@ -25,9 +24,9 @@ backbone:
   name: "efficientnet-b2"
 
 model:
-  grid_size: 60
-  category_feat_range: [2, 6]
-  mask_feat_range: [0, 4]
+  grid_size: 50
+  category_feat_range: [2, 5]
+  mask_feat_range: [0, 3]
   hidden_channels: 64
 
 dataset:

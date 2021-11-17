@@ -1,5 +1,7 @@
 import torch.nn as nn
 import torch
+from torch import Tensor
+from typing import Callable, Optional
 
 
 class CovNormAct(nn.Module):
@@ -12,6 +14,7 @@ class CovNormAct(nn.Module):
         padding: int = 1,
         dilation: int = 1,
         groups: int = 1,
+        activation: Optional[Callable[[Tensor], Tensor]] = nn.ReLU(inplace=True),
     ) -> None:
         super().__init__()
         self.conv = nn.Conv2d(
@@ -26,10 +29,11 @@ class CovNormAct(nn.Module):
         self.norm = nn.BatchNorm2d(
             num_features=out_channels,
         )
-        self.act = nn.ReLU(inplace=True)
+        self.activation = activation
 
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
         out = self.conv(feat)
         out = self.norm(out)
-        out = self.act(out)
+        if self.activation is not None:
+            out = self.activation(out)
         return out

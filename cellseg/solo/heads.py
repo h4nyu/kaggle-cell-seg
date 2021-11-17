@@ -19,6 +19,7 @@ class Head(nn.Module):
             CovNormAct(
                 in_channels=channels[0],
                 out_channels=hidden_channels,
+                activation=None,  # TODO: why version is different
             ),
         )
         down_counts = torch.log2(torch.tensor(reductions)).long()
@@ -34,6 +35,7 @@ class Head(nn.Module):
                     out_channels=hidden_channels,
                 ),
             )
+
             for j in range(down_count):
                 if j != 0:
                     convs_per_level.add_module(
@@ -46,7 +48,7 @@ class Head(nn.Module):
                 upsample = nn.Upsample(
                     scale_factor=2, mode="bilinear", align_corners=False
                 )
-                convs_per_level.add_module("upsample" + str(j), upsample)
+                convs_per_level.add_module(f"upsample{j}", upsample)
             self.convs_all_levels.append(convs_per_level)
 
         self.coord_conv = CoordConv()

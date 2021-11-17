@@ -48,6 +48,7 @@ class Criterion:
             filtered_masks = pred_masks[mask_index]
             mask_loss += self.mask_loss(inputs=filtered_masks, targets=gt_masks)
         loss = category_loss + mask_loss
+        loss = mask_loss
         return loss
 
 
@@ -87,8 +88,6 @@ class Solo(nn.Module):
         category_feats = features[
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
-        for f in category_feats:
-            print(f.shape)
         category_grid = self.category_head(category_feats)
         if category_grid.shape[2:] != (self.grid_size, self.grid_size):
             category_grid = F.interpolate(
@@ -117,7 +116,6 @@ class TrainStep:
 
     def __call__(self, batch: Batch) -> dict[str, float]:
         self.model.train()
-        self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
             gt_category_grids, mask_index = self.bath_adaptor(
@@ -136,6 +134,7 @@ class TrainStep:
                 ),
             )
             self.scaler.scale(loss).backward()
+            self.optimizer.zero_grad()
             self.scaler.step(self.optimizer)
             self.scaler.update()
             return dict(loss=float(loss.item()))
