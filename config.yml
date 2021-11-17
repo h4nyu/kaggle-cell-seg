@@ -1,4 +1,0 @@
-data:
-  root: /store
-  train_annotaion: train.csv
-  train_image_dir: train

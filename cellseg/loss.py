@@ -19,16 +19,15 @@ class SigmoidFocalLoss:
         self.reduction = reduction
 
     def __call__(self, inputs: Tensor, targets: Tensor) -> Tensor:
-        prob = torch.sigmoid(inputs)
+        prob = F.sigmoid(inputs)
         prob = torch.clamp(prob, self.smooth, 1.0 - self.smooth)
 
         pos_mask = (targets == 1).float()
         neg_mask = (targets == 0).float()
-
-        pos_weight = (pos_mask * torch.pow(1 - prob, self.gamma)).detach()
+        pos_weight = pos_mask * torch.pow(1 - prob, self.gamma)
         pos_loss = -pos_weight * torch.log(prob)  # / (torch.sum(pos_weight) + 1e-4)
 
-        neg_weight = (neg_mask * torch.pow(prob, self.gamma)).detach()
+        neg_weight = neg_mask * torch.pow(prob, self.gamma)
         neg_loss = (
             -self.alpha * neg_weight * F.logsigmoid(-inputs)
         )  # / (torch.sum(neg_weight) + 1e-4)

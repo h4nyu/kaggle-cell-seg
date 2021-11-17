@@ -36,9 +36,9 @@ jobs:
             - ./image.tar
 
       - run:
-          name: Lint
+          name: Test
           command: |
-            docker-compose run --rm app mypy
+            docker-compose run --rm app pytest
             
 workflows:
   version: 2

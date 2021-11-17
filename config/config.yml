@@ -1,8 +1,0 @@
-
-batch_size: 10
-
-dataset:
-  image:
-    size: 512
-    channels: 3
-  num_classes: 1

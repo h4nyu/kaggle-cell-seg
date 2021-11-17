@@ -4,6 +4,7 @@ from typing import Optional
 from torchvision.ops import masks_to_boxes, box_convert
 
 
+@torch.no_grad()
 def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, Tensor]:
     grid_y, grid_x = torch.meshgrid(  # type:ignore
         torch.arange(h, dtype=dtype),
@@ -13,12 +14,15 @@ def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, T
 
 
 class MasksToCenters:
+    @torch.no_grad()
     def __call__(
         self,
         masks: Tensor,
     ) -> Tensor:
+        _, h, w = masks.shape
         boxes = masks_to_boxes(masks)
-        return box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2]
+        cxcy = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2]
+        return cxcy
 
 
 class CentersToGridIndex:
@@ -28,11 +32,12 @@ class CentersToGridIndex:
     ) -> None:
         self.grid_size = grid_size
 
+    @torch.no_grad()
     def __call__(
         self,
         centers: Tensor,
     ) -> Tensor:
-        return (centers[:, 1] * self.grid_size + centers[:, 0]).long()
+        return centers[:, 1].long() * self.grid_size + centers[:, 0].long()
 
 
 class ToCategoryGrid:
@@ -45,14 +50,16 @@ class ToCategoryGrid:
         self.grid_size = grid_size
         self.to_index = CentersToGridIndex(self.grid_size)
 
+    @torch.no_grad()
     def __call__(
         self,
         centers: Tensor,
         labels: Tensor,
     ) -> tuple[Tensor, Tensor]:  # category_grid, mask_index
         device = centers.device
+        dtype = centers.dtype
         cagetory_grid = torch.zeros(
-            self.num_classes, self.grid_size, self.grid_size, dtype=torch.float32
+            self.num_classes, self.grid_size, self.grid_size, dtype=dtype
         ).to(device)
         mask_index = self.to_index(centers)
         index = labels * self.grid_size ** 2 + mask_index
@@ -77,6 +84,7 @@ class BatchAdaptor:
         self.scale = grid_size / original_size
         self.masks_to_centers = MasksToCenters()
 
+    @torch.no_grad()
     def __call__(
         self,
         mask_batch: list[Tensor],
