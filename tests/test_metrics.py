@@ -1,7 +1,7 @@
 import pytest
 import torch
 from torch import Tensor
-from cellseg.metrics import MaskIou, precision_at, precision
+from cellseg.metrics import MaskIou, MaskAP
 
 
 @pytest.mark.parametrize(
@@ -51,6 +51,7 @@ def test_large_mask_iou() -> None:
 
 
 def test_precision_at() -> None:
+    mask_ap = MaskAP()
     inputs = torch.zeros(2, 4, 4)
     inputs[0, 0:2, 0:2] = 1
     inputs[1, 2, 1] = 1
@@ -59,14 +60,15 @@ def test_precision_at() -> None:
     targets[0, 0, 0] = 1
     targets[1, 1, 1] = 1
     targets[2, 2, 2] = 1
-    res = precision_at(inputs, targets, 0.2)
+    res = mask_ap.precision_at(inputs, targets, 0.2)
     assert res == 1 / 4
 
 
 def test_precision() -> None:
     masks = torch.load("/app/data/masks-0030fd0e6378.pth")
-    res = precision(
+    mask_ap = MaskAP()
+    mask_ap.accumulate(
         pred_masks=masks,
         gt_masks=masks,
     )
-    assert res == 1.0
+    assert mask_ap.value == 1.0

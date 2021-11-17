@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -35,28 +36,76 @@ class MaskIou:
             return self._simple(pred_masks, gt_masks)
 
 
-def precision_at(pred_masks: Tensor, gt_masks: Tensor, threshold: float) -> float:
-    mask_iou = MaskIou()
-    iou_matrix = mask_iou(pred_masks, gt_masks)
-    num_preds, num_gt = iou_matrix.shape
-    fp = torch.ones(num_gt, dtype=torch.bool)
-    for ious in iou_matrix:
-        iou, gt_idx = ious.max(dim=0)
-        if iou >= threshold:
-            fp[gt_idx] = False
-    fp_count = fp.sum()
-    tp_count = num_gt - fp_count
-    res = tp_count / (num_gt + num_preds - tp_count)
-    return res.item()
+class MaskAP:
+    def __init__(
+        self,
+        reduce_size: int = 1,
+        thresholds: list[float] = [
+            0.5,
+            0.55,
+            0.6,
+            0.65,
+            0.7,
+            0.75,
+            0.8,
+            0.85,
+            0.9,
+            0.95,
+        ],
+    ):
+        self.thresholds = thresholds
+        self.reduce_size = reduce_size
+        self.mask_iou = MaskIou(use_batch=reduce_size > 1)
+        self.num_samples = 0
+        self.runing_value = 0.0
 
+    @property
+    def value(self) -> float:
+        if self.num_samples == 0:
+            return 0.0
+        return self.runing_value / self.num_samples
 
-def precision(
-    pred_masks: Tensor,
-    gt_masks: Tensor,
-    thresholds: list[float] = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
-) -> float:
-    precisions = [
-        precision_at(pred_masks=pred_masks, gt_masks=gt_masks, threshold=threshold)
-        for threshold in thresholds
-    ]
-    return np.mean(precisions)
+    def precision_at(
+        self, pred_masks: Tensor, gt_masks: Tensor, threshold: float
+    ) -> float:
+        iou_matrix = self.mask_iou(pred_masks, gt_masks)
+        num_preds, num_gt = iou_matrix.shape
+        fp = torch.ones(num_gt, dtype=torch.bool)
+        for ious in iou_matrix:
+            iou, gt_idx = ious.max(dim=0)
+            if iou >= threshold:
+                fp[gt_idx] = False
+        fp_count = fp.sum()
+        tp_count = num_gt - fp_count
+        res = tp_count / (num_gt + num_preds - tp_count)
+        return res.item()
+
+    def accumulate(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> float:
+        value = self(pred_masks, gt_masks)
+        self.num_samples += 1
+        self.runing_value += value
+        return value
+
+    def __call__(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> float:
+        if self.reduce_size > 1:
+            pred_masks = F.interpolate(
+                pred_masks,
+                size=(
+                    pred_masks.shape[2] // self.reduce_size,
+                    pred_masks.shape[3] // self.reduce_size,
+                ),
+            )
+            gt_masks = F.interpolate(
+                gt_masks,
+                size=(
+                    gt_masks.shape[2] // self.reduce_size,
+                    gt_masks.shape[3] // self.reduce_size,
+                ),
+            )
+        precisions = [
+            self.precision_at(
+                pred_masks=pred_masks, gt_masks=gt_masks, threshold=threshold
+            )
+            for threshold in self.thresholds
+        ]
+        return np.mean(precisions)
