@@ -32,6 +32,8 @@ dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
 
+mask_ap:
+  reduce_size: 8
 criterion:
   category_weight: 2.0
   mask_weight: 1.0

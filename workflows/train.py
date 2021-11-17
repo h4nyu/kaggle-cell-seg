@@ -81,6 +81,7 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"{epoch=} {progress=} {train_loss=}")
 
         running_loss = 0.0
+        mask_ap = MaskAP(**cfg.mask_ap)
         for batch_idx, batch in enumerate(val_loader):
             batch = to_device(*batch)
             validation_log = validation_step(batch)
