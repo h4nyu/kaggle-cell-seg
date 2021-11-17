@@ -1,4 +1,3 @@
-
 name: solo-baseline
 mixed_presision: true
 num_epochs: 100
@@ -40,7 +39,7 @@ optimizer:
   nesterov: true
 
 train_loader:
-  batch_size: 2 
+  batch_size: 6 
   shuffle: true
   num_workers: 6
 
@@ -48,10 +47,3 @@ validation_loader:
   batch_size: 16
   shuffle: false
   num_workers: 6
-
-
-# dataset:
-#   image:
-#     size: 512
-#     channels: 3
-#   num_classes: 1
