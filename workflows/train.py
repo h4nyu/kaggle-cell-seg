@@ -42,6 +42,8 @@ def main(cfg: DictConfig) -> None:
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(dataset, **cfg.fold)
+    train_len = len(train_indecies) // cfg.train_loader.batch_size
+    validation_len = len(validation_indecies) // cfg.validation_loader.batch_size
     train_loader = DataLoader(
         Subset(dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader
     )
@@ -57,11 +59,14 @@ def main(cfg: DictConfig) -> None:
         for batch_idx, batch in enumerate(train_loader):
             batch = to_device(*batch)
             train_log = train_step(batch)
-            logger.info(f"{train_log=}")
+            progress = f"{batch_idx}/{train_len}"
+            logger.info(f"{epoch=} {progress=} {train_log=}")
 
         for batch_idx, batch in enumerate(val_loader):
             batch = to_device(*batch)
             validation_log = train_step(batch)
+            progress = f"{batch_idx}/{validation_len}"
+            logger.info(f"{epoch=} {progress=} {validation_log=}")
 
 
 if __name__ == "__main__":

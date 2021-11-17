@@ -39,7 +39,7 @@ optimizer:
   nesterov: true
 
 train_loader:
-  batch_size: 6 
+  batch_size: 4 
   shuffle: true
   num_workers: 6
 
