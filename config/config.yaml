@@ -2,6 +2,7 @@ name: solo-baseline
 mixed_presision: true
 num_epochs: 100
 device: cuda
+seed: &seed 0 
 
 data:
   root_path: /store
@@ -17,7 +18,7 @@ original_size: 384
 fold:
   index: 0
   n_splits: 5
-  seed: 0
+  seed: *seed
 
 backbone:
   name: "efficientnet-b2"

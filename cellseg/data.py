@@ -125,7 +125,6 @@ def collate_fn(batch: list[TrainItem]) -> tuple[Tensor, list[Tensor], list[Tenso
     )
 
 
-
 class CellTrainDataset(Dataset):
     def __init__(
         self,
@@ -169,6 +168,7 @@ class CellTrainDataset(Dataset):
             labels=labels,
         )
 
+
 def get_fold_indices(
     dataset: CellTrainDataset, n_splits: int = 5, index: int = 0, seed: int = 0
 ) -> tuple[list[int], list[int]]:
@@ -176,4 +176,3 @@ def get_fold_indices(
     x = np.arange(len(dataset))
     y = dataset.stratums
     return list(splitter.split(x, y))[index]
-
