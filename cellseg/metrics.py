@@ -4,13 +4,16 @@ import numpy as np
 
 
 def mask_iou(pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
-    pred_masks = pred_masks.bool().view(pred_masks.shape[0], 1, -1)
-    print(pred_masks.shape)
+    iou_rows = []
+    pred_masks = pred_masks.bool().view(pred_masks.shape[0], -1)
     gt_masks = gt_masks.bool().view(gt_masks.shape[0], -1)
-    intersection = (pred_masks & gt_masks).sum(dim=-1)
-    union = (pred_masks | gt_masks).sum(dim=-1)
-    iou_matrix = intersection / union
-    iou_matrix = iou_matrix.nan_to_num(nan=0)
+    gt_masks = gt_masks.bool()
+    for pred_mask in pred_masks:
+        intersection = (gt_masks & pred_mask).sum(dim=-1)
+        union = (gt_masks | pred_mask).sum(dim=-1)
+        iou_row = intersection / union
+        iou_rows.append(iou_row)
+    iou_matrix = torch.stack(iou_rows).nan_to_num(nan=0)
     return iou_matrix
 
 
