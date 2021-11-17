@@ -36,11 +36,6 @@ jobs:
             - ./image.tar
 
       - run:
-          name: Lint
-          command: |
-            docker-compose run --rm app mypy
-
-      - run:
           name: Test
           command: |
             docker-compose run --rm app pytest
