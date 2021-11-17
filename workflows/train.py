@@ -1,13 +1,14 @@
 import hydra
 from torch import Tensor
 from omegaconf import DictConfig
+import os
 from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger
 from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.backbones import EfficientNetFPN
-from cellseg.util import seed_everything
+from cellseg.util import seed_everything, Checkpoint
 from cellseg.data import (
     ToDevice,
     get_fold_indices,
@@ -24,7 +25,13 @@ def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
     backbone = EfficientNetFPN(**cfg.backbone)
-    model = Solo(**cfg.model, backbone=backbone).to(cfg.device)
+    checkpoint = Checkpoint[Solo](
+        root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
+        default_score=float("inf")
+    )
+    model = Solo(**cfg.model, backbone=backbone)
+    model, score = checkpoint.load_if_exists(model)
+    model = model.to(cfg.device)
     criterion = Criterion()
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
@@ -74,6 +81,9 @@ def main(cfg: DictConfig) -> None:
             validation_log = validation_step(batch)
             progress = f"{batch_idx}/{validation_len}"
             logger.info(f"{epoch=} {progress=} {validation_log=}")
+            val_loss = validation_log["loss"]
+            if val_loss < score:
+                score = checkpoint.save(model, val_loss)
 
 
 if __name__ == "__main__":

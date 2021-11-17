@@ -12,7 +12,6 @@ data:
     - shsy5y 
     - astro
     - cort
-
 num_classes: 1
 original_size: 384
 fold:
@@ -45,6 +44,6 @@ train_loader:
   num_workers: 6
 
 validation_loader:
-  batch_size: 8
+  batch_size: 4
   shuffle: false
   num_workers: 6
