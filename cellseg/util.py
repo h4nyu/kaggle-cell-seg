@@ -38,3 +38,19 @@ class Checkpoint(Generic[T]):
         torch.save(model.state_dict(), self.model_path)  # type: ignore
         OmegaConf.save(config=dict(score=score), f=self.checkpoint_path)
         return score
+
+
+class MeanReduceDict:
+    def __init__(self, keys: list[str] = []) -> None:
+        self.keys = keys
+        self.running: dict[str, float] = {}
+        self.num_samples = 0
+
+    def accumulate(self, log: dict[str, float]) -> None:
+        for k in self.keys:
+            self.running[k] = self.running.get(k, 0) + log.get(k, 0)
+        self.num_samples += 1
+
+    @property
+    def value(self) -> dict[str, float]:
+        return {k: v / max(1, self.num_samples) for k, v in self.running.items()}

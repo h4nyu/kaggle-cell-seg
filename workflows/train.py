@@ -10,7 +10,7 @@ from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep, ToMasks
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
-from cellseg.util import seed_everything, Checkpoint
+from cellseg.util import seed_everything, Checkpoint, MeanReduceDict
 from cellseg.data import (
     ToDevice,
     get_fold_indices,
@@ -72,30 +72,24 @@ def main(cfg: DictConfig) -> None:
     to_device = ToDevice(cfg.device)
 
     for epoch in range(cfg.num_epochs):
-        running_loss = 0.0
+        train_reduer = MeanReduceDict(keys=cfg.log_keys)
         for batch_idx, batch in enumerate(train_loader):
             batch = to_device(*batch)
             train_log = train_step(batch)
-            progress = f"{batch_idx}/{train_len}"
-            running_loss += train_log["loss"]
+            train_reduer.accumulate(train_log)
 
-        train_loss = running_loss / train_len
-        logger.info(f"{epoch=} {progress=} {train_loss=}")
-
-        running_loss = 0.0
+        logger.info(f"{epoch=} {train_reduer.value=} ")
+        val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch_idx, batch in enumerate(val_loader):
             batch = to_device(*batch)
             validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
-            progress = f"{batch_idx}/{validation_len}"
-            val_loss = validation_log["loss"]
-            running_loss += val_loss
-        val_loss = running_loss / validation_len
+            val_reduer.accumulate(validation_log)
 
         if score < mask_ap.value:
             score = checkpoint.save(model, mask_ap.value)
             logger.info(f"new {score=} updated model!!")
-        logger.info(f"{epoch=} score={mask_ap.value} {val_loss=}")
+        logger.info(f"{epoch=} score={mask_ap.value} {val_reduer.value=}")
 
 
 if __name__ == "__main__":

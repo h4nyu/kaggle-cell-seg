@@ -3,6 +3,10 @@ mixed_presision: true
 num_epochs: 100
 device: cuda
 seed: &seed 0 
+log_keys:
+  - loss
+  - category_loss
+  - mask_loss
 
 data:
   root_path: /store
@@ -24,15 +28,15 @@ backbone:
   name: "efficientnet-b2"
 
 model:
-  grid_size: 40
-  category_feat_range: [2, 5]
+  grid_size: 32
+  category_feat_range: [3, 5]
   mask_feat_range: [0, 3]
   hidden_channels: 64
 
 
 mask_ap:
   reduce_size: 8
-  use_batch: true
+  use_batch: false
   thresholds:
     - 0.7
 
