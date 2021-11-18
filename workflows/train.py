@@ -6,7 +6,7 @@ from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger
 import torch_optimizer as optim
-from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep
+from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep, ToMasks
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
@@ -28,7 +28,7 @@ def main(cfg: DictConfig) -> None:
     backbone = EfficientNetFPN(**cfg.backbone)
     checkpoint = Checkpoint[Solo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
-        default_score=float("inf"),
+        default_score=0,
     )
     model = Solo(**cfg.model, backbone=backbone)
     model, score = checkpoint.load_if_exists(model)
@@ -45,10 +45,12 @@ def main(cfg: DictConfig) -> None:
         criterion=criterion,
         batch_adaptor=batch_adaptor,
     )
+    to_masks = ToMasks(**cfg.to_masks)
     validation_step = ValidationStep(
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
+        to_masks=to_masks,
     )
     dataset = CellTrainDataset(
         **cfg.dataset,
@@ -84,15 +86,16 @@ def main(cfg: DictConfig) -> None:
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch_idx, batch in enumerate(val_loader):
             batch = to_device(*batch)
-            validation_log = validation_step(batch)
+            validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
             progress = f"{batch_idx}/{validation_len}"
             val_loss = validation_log["loss"]
             running_loss += val_loss
-            if val_loss < score:
-                logger.info(f"update model!!")
-                score = checkpoint.save(model, val_loss)
         val_loss = running_loss / validation_len
-        logger.info(f"{epoch=} {progress=} {val_loss=}")
+
+        if score < mask_ap.value:
+            score = checkpoint.save(model, val_loss)
+            logger.info(f"{score=} updated model!!")
+        logger.info(f"{epoch=} {score=} {val_loss=}")
 
 
 if __name__ == "__main__":

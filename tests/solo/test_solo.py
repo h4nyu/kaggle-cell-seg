@@ -1,6 +1,38 @@
 import torch
-from cellseg.solo import Solo, Criterion
+from cellseg.solo import Solo, Criterion, ToMasks
+from cellseg.solo.adaptors import CentersToGridIndex, ToCategoryGrid, BatchAdaptor
 from cellseg.backbones import EfficientNetFPN
+
+
+def test_to_masks() -> None:
+    grid_size = 4
+    original_size = 8
+    gt_masks = torch.zeros(2, original_size, original_size).bool()
+    labels = torch.zeros(len(gt_masks))
+    gt_masks[0, 0:3, 1:2] = True
+    gt_masks[1, 3:4, 3:5] = True
+
+    ba = BatchAdaptor(
+        num_classes=1,
+        grid_size=grid_size,
+        original_size=original_size,
+    )
+    gt_mask_batch = [gt_masks]
+    gt_label_batch = [labels]
+    grids, gt_index_batch = ba(gt_mask_batch, gt_label_batch)
+    to_masks = ToMasks()
+    all_masks = torch.zeros(
+        1, grid_size * grid_size, original_size, original_size
+    ).bool()
+    for gt_idx, all_idx in enumerate(gt_index_batch[0]):
+        all_masks[0][all_idx] = gt_masks[gt_idx]
+
+    mask_batch, label_batch = to_masks(grids, all_masks)
+    assert (
+        len(mask_batch) == len(gt_mask_batch) == len(label_batch) == len(gt_label_batch)
+    )
+    for masks, gt_masks in zip(mask_batch, gt_mask_batch):
+        assert (masks ^ gt_masks).sum() == 0
 
 
 def test_solo() -> None:

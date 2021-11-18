@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from .heads import Head
-from typing import Protocol, TypedDict
-from cellseg.loss import SigmoidFocalLoss, DiceLoss
-from .adaptors import BatchAdaptor
+from typing import Protocol, TypedDict, Optional, Callable
+from cellseg.loss import FocalLoss, DiceLoss
+from .adaptors import BatchAdaptor, CentersToGridIndex
 from torch.cuda.amp import GradScaler, autocast
 from typing import Any
 
@@ -27,7 +27,7 @@ class Criterion:
         mask_weight: float = 1.0,
         category_weight: float = 1.0,
     ) -> None:
-        self.category_loss = SigmoidFocalLoss()
+        self.category_loss = FocalLoss()
         self.mask_loss = DiceLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
@@ -102,6 +102,37 @@ class Solo(nn.Module):
         return (category_grid, masks)
 
 
+class ToMasks:
+    def __init__(
+        self,
+        category_threshold: float = 0.5,
+        mask_threshold: float = 0.5,
+    ) -> None:
+        self.category_threshold = category_threshold
+        self.mask_threshold = mask_threshold
+
+    @torch.no_grad()
+    def __call__(
+        self, category_grids: Tensor, all_masks: Tensor
+    ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch, mask_indecies
+        batch_size = category_grids.shape[0]
+        grid_size = category_grids.shape[2]
+        to_index = CentersToGridIndex(grid_size=grid_size)
+        all_masks = all_masks > self.mask_threshold
+        batch_indecies, labels, cy, cx, = (
+            (category_grids > self.category_threshold).nonzero().unbind(-1)
+        )
+        mask_indecies = to_index(torch.stack([cx, cy], dim=1))
+        mask_batch: list[Tensor] = []
+        label_batch: list[Tensor] = []
+        for batch_idx in range(batch_size):
+            filterd = batch_indecies == batch_idx
+            label_batch.append(labels[filterd])
+            mask_batch.append(all_masks[batch_idx][mask_indecies[filterd]])
+
+        return mask_batch, label_batch
+
+
 class TrainStep:
     def __init__(
         self,
@@ -154,13 +185,19 @@ class ValidationStep:
         criterion: Criterion,
         model: Solo,
         batch_adaptor: BatchAdaptor,
+        to_masks: ToMasks,
     ) -> None:
         self.criterion = criterion
         self.model = model
         self.bath_adaptor = batch_adaptor
+        self.to_masks = to_masks
 
     @torch.no_grad()
-    def __call__(self, batch: Batch) -> dict[str, float]:
+    def __call__(
+        self,
+        batch: Batch,
+        on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
+    ) -> dict[str, float]:  # mask_batch, label_batch, logs
         self.model.eval()
         images, gt_mask_batch, gt_label_batch = batch
         gt_category_grids, mask_index = self.bath_adaptor(
@@ -178,6 +215,11 @@ class ValidationStep:
                 mask_index,
             ),
         )
+        pred_mask_batch, pred_label_batch = self.to_masks(
+            pred_category_grids, pred_all_masks
+        )
+        if on_end is not None:
+            on_end(pred_mask_batch, gt_mask_batch)
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),

@@ -5,7 +5,7 @@ from torch import Tensor
 from typing import Optional
 
 
-class SigmoidFocalLoss:
+class FocalLoss:
     def __init__(
         self,
         alpha: float = 3.0,
@@ -19,8 +19,7 @@ class SigmoidFocalLoss:
         self.reduction = reduction
 
     def __call__(self, inputs: Tensor, targets: Tensor) -> Tensor:
-        prob = F.sigmoid(inputs)
-        prob = torch.clamp(prob, self.smooth, 1.0 - self.smooth)
+        prob = torch.clamp(inputs, self.smooth, 1.0 - self.smooth)
 
         pos_mask = (targets == 1).float()
         neg_mask = (targets == 0).float()
@@ -42,8 +41,6 @@ class DiceLoss:
         self.smooth = smooth
 
     def __call__(self, inputs: Tensor, targets: Tensor) -> Tensor:
-
-        inputs = F.sigmoid(inputs)
         inputs = inputs.view(-1)
         targets = targets.view(-1)
 

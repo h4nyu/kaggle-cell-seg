@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch import Tensor
 from .convs import CovNormAct
 from .coord_conv import CoordConv
+import torch.nn.functional as F
 
 
 class Head(nn.Module):
@@ -66,4 +67,5 @@ class Head(nn.Module):
             conved = conv(coord_feat)
             conved_sum += conved
         out = self.out_conv(conved_sum)
+        out = torch.sigmoid(out)
         return out

@@ -1,7 +1,6 @@
 import torch
 from torch import Tensor
 import torch.nn.functional as F
-import numpy as np
 
 
 class MaskIou:
@@ -40,6 +39,7 @@ class MaskAP:
     def __init__(
         self,
         reduce_size: int = 1,
+        use_batch: bool = False,
         thresholds: list[float] = [
             0.5,
             0.55,
@@ -55,7 +55,7 @@ class MaskAP:
     ):
         self.thresholds = thresholds
         self.reduce_size = reduce_size
-        self.mask_iou = MaskIou(use_batch=reduce_size > 1)
+        self.mask_iou = MaskIou(use_batch=use_batch)
         self.num_samples = 0
         self.runing_value = 0.0
 
@@ -86,6 +86,12 @@ class MaskAP:
         self.runing_value += value
         return value
 
+    def accumulate_batch(
+        self, pred_masks: list[torch.Tensor], gt_masks: list[torch.Tensor]
+    ) -> None:
+        for p, g in zip(pred_masks, gt_masks):
+            self.accumulate(p, g)
+
     @torch.no_grad()
     def __call__(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> float:
         if self.reduce_size > 1:
@@ -96,10 +102,9 @@ class MaskAP:
             )[0].bool()
             pred_masks = all_masks[:split_idx]
             gt_masks = all_masks[split_idx:]
-        precisions = [
-            self.precision_at(
-                pred_masks=pred_masks, gt_masks=gt_masks, threshold=threshold
+        running_p = 0.0
+        for th in self.thresholds:
+            running_p += self.precision_at(
+                pred_masks=pred_masks, gt_masks=gt_masks, threshold=th
             )
-            for threshold in self.thresholds
-        ]
-        return np.mean(precisions)
+        return running_p / len(self.thresholds)
