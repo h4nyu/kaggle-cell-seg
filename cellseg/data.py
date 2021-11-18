@@ -91,7 +91,7 @@ TrainItem = TypedDict(
 )
 
 
-class Tranform:
+class TrainTranform:
     def __init__(self, original_size: int):
 
         self.transform = A.Compose(
@@ -105,7 +105,25 @@ class Tranform:
                     p=1,
                 ),
                 A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                A.VerticalFlip(p=0.5),
+                ToTensorV2(),
+            ]
+        )
+
+    def __call__(self, *args: Any, **kargs: Any) -> Any:
+        return self.transform(*args, **kargs)
+
+class Tranform:
+    def __init__(self, original_size: int):
+
+        self.transform = A.Compose(
+            [
+                A.Resize(
+                    width=original_size,
+                    height=original_size,
+                    interpolation=cv2.INTER_LINEAR,
+                    p=1,
+                ),
+                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ToTensorV2(),
             ]
         )

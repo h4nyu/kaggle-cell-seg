@@ -16,6 +16,7 @@ from cellseg.data import (
     get_fold_indices,
     CellTrainDataset,
     collate_fn,
+    TrainTranform,
     Tranform,
 )
 from torch.utils.data import Subset, DataLoader
@@ -54,18 +55,24 @@ def main(cfg: DictConfig) -> None:
         to_masks=to_masks,
         use_amp=cfg.use_amp,
     )
-    dataset = CellTrainDataset(
+    train_dataset = CellTrainDataset(
+        **cfg.dataset,
+        transform=TrainTranform(
+            original_size=cfg.original_size,
+        ),
+    )
+    val_dataset = CellTrainDataset(
         **cfg.dataset,
         transform=Tranform(
             original_size=cfg.original_size,
         ),
     )
-    train_indecies, validation_indecies = get_fold_indices(dataset, **cfg.fold)
+    train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)
     train_loader = DataLoader(
-        Subset(dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader
+        Subset(train_dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader
     )
     val_loader = DataLoader(
-        Subset(dataset, validation_indecies),
+        Subset(val_dataset, validation_indecies),
         collate_fn=collate_fn,
         **cfg.validation_loader,
     )
@@ -82,7 +89,7 @@ def main(cfg: DictConfig) -> None:
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch in val_loader:
             batch = to_device(*batch)
-            validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
+            validation_log = validation_step(batch)
             val_reduer.accumulate(validation_log)
 
         if score > val_reduer.value["loss"]:

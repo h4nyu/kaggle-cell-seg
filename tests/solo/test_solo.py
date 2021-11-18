@@ -64,11 +64,10 @@ def test_loss() -> None:
 
     # net outputss
     pred_category_grids = (
-        torch.ones(batch_size, num_classes, grid_size, grid_size) * -100
+        torch.zeros(batch_size, num_classes, grid_size, grid_size)
     )
     all_masks = (
-        torch.ones(batch_size, grid_size * grid_size, original_size, original_size)
-        * -100
+        torch.zeros(batch_size, grid_size * grid_size, original_size, original_size)
     )
 
     # data adaptor outputs
@@ -81,4 +80,5 @@ def test_loss() -> None:
         inputs=(pred_category_grids, all_masks),
         targets=(gt_category_grids, gt_mask_batch, mask_index_batch),
     )
-    assert loss_value == category_loss == mask_loss == 0
+    assert  category_loss + mask_loss == loss_value
+    assert loss_value < 0.01
