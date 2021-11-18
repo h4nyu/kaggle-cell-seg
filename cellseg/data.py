@@ -96,12 +96,16 @@ class Tranform:
 
         self.transform = A.Compose(
             [
+                A.Flip(),
+                A.RandomRotate90(),
                 A.Resize(
                     width=original_size,
                     height=original_size,
                     interpolation=cv2.INTER_LINEAR,
                     p=1,
                 ),
+                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                A.VerticalFlip(p=0.5),
                 ToTensorV2(),
             ]
         )
