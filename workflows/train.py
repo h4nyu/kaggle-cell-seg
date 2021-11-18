@@ -88,7 +88,7 @@ def main(cfg: DictConfig) -> None:
         if score > val_reduer.value["loss"]:
             score = checkpoint.save(model, val_reduer.value["loss"])
             logger.info(f"new updated model!!")
-        logger.info(f"{epoch=}  {val_reduer.value=}")
+        logger.info(f"{epoch=} {score=} {val_reduer.value=}")
 
 
 if __name__ == "__main__":
