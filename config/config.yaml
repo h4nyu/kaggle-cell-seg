@@ -17,7 +17,7 @@ num_classes: 1
 original_size: 384
 fold:
   index: 0
-  n_splits: 5
+  n_splits: 6
   seed: *seed
 
 backbone:
@@ -52,11 +52,11 @@ optimizer:
   lr: 1e-3
 
 train_loader:
-  batch_size: 2 
+  batch_size: 3 
   shuffle: true
   num_workers: 6
 
 validation_loader:
-  batch_size: 2
+  batch_size: 3
   shuffle: false
   num_workers: 6

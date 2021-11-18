@@ -93,9 +93,9 @@ def main(cfg: DictConfig) -> None:
         val_loss = running_loss / validation_len
 
         if score < mask_ap.value:
-            score = checkpoint.save(model, val_loss)
-            logger.info(f"{score=} updated model!!")
-        logger.info(f"{epoch=} {score=} {val_loss=}")
+            score = checkpoint.save(model, mask_ap.value)
+            logger.info(f"new {score=} updated model!!")
+        logger.info(f"{epoch=} score={mask_ap.value} {val_loss=}")
 
 
 if __name__ == "__main__":
