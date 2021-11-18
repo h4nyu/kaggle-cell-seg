@@ -28,7 +28,7 @@ class Criterion:
         category_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
-        self.mask_loss = FocalLoss()
+        self.mask_loss = DiceLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
 
@@ -42,15 +42,13 @@ class Criterion:
         pred_category_grids, all_masks = inputs
         gt_category_grids, gt_mask_batch, mask_index_batch = targets
         device = pred_category_grids.device
-        category_loss = self.category_loss(
-            inputs=pred_category_grids, targets=gt_category_grids
-        )
+        category_loss = self.category_loss(pred_category_grids, gt_category_grids)
         mask_loss = torch.tensor(0.0).to(device)
         for gt_masks, mask_index, pred_masks in zip(
             gt_mask_batch, mask_index_batch, all_masks
         ):
             filtered_masks = pred_masks[mask_index]
-            mask_loss += self.mask_loss(inputs=filtered_masks, targets=gt_masks)
+            mask_loss += self.mask_loss(filtered_masks, gt_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 

@@ -28,7 +28,7 @@ def main(cfg: DictConfig) -> None:
     backbone = EfficientNetFPN(**cfg.backbone)
     checkpoint = Checkpoint[Solo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
-        default_score=0,
+        default_score=float("inf"),
     )
     model = Solo(**cfg.model, backbone=backbone)
     model, score = checkpoint.load_if_exists(model)
@@ -85,10 +85,10 @@ def main(cfg: DictConfig) -> None:
             validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
             val_reduer.accumulate(validation_log)
 
-        if score < mask_ap.value:
-            score = checkpoint.save(model, mask_ap.value)
-            logger.info(f"new {score=} updated model!!")
-        logger.info(f"{epoch=} score={mask_ap.value} {val_reduer.value=}")
+        if score > val_reduer.value["loss"]:
+            score = checkpoint.save(model, val_reduer.value["loss"])
+            logger.info(f"new updated model!!")
+        logger.info(f"{epoch=}  {val_reduer.value=}")
 
 
 if __name__ == "__main__":

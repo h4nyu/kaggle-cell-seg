@@ -13,9 +13,7 @@ data:
   train_file_path: /store/train.csv
   train_images_path: /store/train
   cell_types:
-    - shsy5y 
-    - astro
-    - cort
+    - shsy5y - astro - cort
 
 num_classes: 1
 original_size: 384
@@ -56,11 +54,11 @@ optimizer:
   lr: 1e-3
 
 train_loader:
-  batch_size: 3 
+  batch_size: 5 
   shuffle: true
   num_workers: 6
 
 validation_loader:
-  batch_size: 3
+  batch_size: 5
   shuffle: false
   num_workers: 6

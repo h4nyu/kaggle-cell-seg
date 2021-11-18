@@ -7,13 +7,13 @@ from cellseg.loss import FocalLoss, DiceLoss
     "factor, expected",
     [
         (0.01, 0.0),
-        (0.99, 3.8),
+        (0.99, 40.6),
     ],
 )
 def test_binary_focal_loss(factor: float, expected: float) -> None:
     loss = FocalLoss()
     inputs = torch.ones(1, 1, 3, 3) * factor
-    targets = torch.zeros(1, 1, 3, 3)
+    targets = torch.zeros(1, 1, 3, 3).bool()
     res = loss(inputs, targets)
     assert round(res.item(), 1) == expected
 
