@@ -52,7 +52,6 @@ class Criterion:
             filtered_masks = pred_masks[mask_index]
             mask_loss += self.mask_loss(inputs=filtered_masks, targets=gt_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
-        loss = mask_loss
         return loss, category_loss, mask_loss
 
 
