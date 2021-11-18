@@ -28,7 +28,7 @@ class Criterion:
         category_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
-        self.mask_loss = DiceLoss()
+        self.mask_loss = FocalLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
 
@@ -129,7 +129,6 @@ class ToMasks:
             filterd = batch_indecies == batch_idx
             label_batch.append(labels[filterd])
             mask_batch.append(all_masks[batch_idx][mask_indecies[filterd]])
-
         return mask_batch, label_batch
 
 

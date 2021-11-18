@@ -61,8 +61,6 @@ def main(cfg: DictConfig) -> None:
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(dataset, **cfg.fold)
-    train_len = len(train_indecies) // cfg.train_loader.batch_size
-    validation_len = len(validation_indecies) // cfg.validation_loader.batch_size
     train_loader = DataLoader(
         Subset(dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader
     )
@@ -75,11 +73,10 @@ def main(cfg: DictConfig) -> None:
 
     for epoch in range(cfg.num_epochs):
         train_reduer = MeanReduceDict(keys=cfg.log_keys)
-        for batch_idx, batch in enumerate(train_loader):
+        for batch in train_loader:
             batch = to_device(*batch)
             train_log = train_step(batch)
             train_reduer.accumulate(train_log)
-
         logger.info(f"{epoch=} {train_reduer.value=} ")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)

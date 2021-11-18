@@ -24,12 +24,12 @@ class FocalLoss:
         pos_mask = (targets == 1).float()
         neg_mask = (targets == 0).float()
         pos_weight = pos_mask * torch.pow(1 - prob, self.gamma)
-        pos_loss = -pos_weight * torch.log(prob)  # / (torch.sum(pos_weight) + 1e-4)
+        pos_loss = -pos_weight * torch.log(prob) / (torch.sum(pos_weight) + 1e-4)
 
         neg_weight = neg_mask * torch.pow(prob, self.gamma)
-        neg_loss = (
-            -self.alpha * neg_weight * F.logsigmoid(-inputs)
-        )  # / (torch.sum(neg_weight) + 1e-4)
+        neg_loss = (-self.alpha * neg_weight * F.logsigmoid(-inputs)) / (
+            torch.sum(neg_weight) + 1e-4
+        )
         loss = pos_loss + neg_loss
         if self.reduction == "mean":
             loss = loss.mean()
