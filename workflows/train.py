@@ -44,6 +44,7 @@ def main(cfg: DictConfig) -> None:
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
+        use_amp=cfg.use_amp,
     )
     to_masks = ToMasks(**cfg.to_masks)
     validation_step = ValidationStep(
@@ -51,6 +52,7 @@ def main(cfg: DictConfig) -> None:
         criterion=criterion,
         batch_adaptor=batch_adaptor,
         to_masks=to_masks,
+        use_amp=cfg.use_amp,
     )
     dataset = CellTrainDataset(
         **cfg.dataset,
@@ -81,7 +83,7 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"{epoch=} {train_reduer.value=} ")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
-        for batch_idx, batch in enumerate(val_loader):
+        for batch in val_loader:
             batch = to_device(*batch)
             validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
             val_reduer.accumulate(validation_log)

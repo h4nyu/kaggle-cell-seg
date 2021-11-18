@@ -96,12 +96,14 @@ class MaskAP:
     def __call__(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> float:
         if self.reduce_size > 1:
             split_idx = pred_masks.shape[0]
-            all_masks = F.interpolate(
-                torch.cat([pred_masks, gt_masks]).unsqueeze(0).float(),
+            pred_masks = F.interpolate(
+                pred_masks.unsqueeze(0).float(),
                 scale_factor=1 / self.reduce_size,
             )[0].bool()
-            pred_masks = all_masks[:split_idx]
-            gt_masks = all_masks[split_idx:]
+            gt_masks = F.interpolate(
+                gt_masks.unsqueeze(0).float(),
+                scale_factor=1 / self.reduce_size,
+            )[0].bool()
         running_p = 0.0
         for th in self.thresholds:
             running_p += self.precision_at(

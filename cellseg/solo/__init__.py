@@ -186,11 +186,13 @@ class ValidationStep:
         model: Solo,
         batch_adaptor: BatchAdaptor,
         to_masks: ToMasks,
+        use_amp: bool = True,
     ) -> None:
         self.criterion = criterion
         self.model = model
         self.bath_adaptor = batch_adaptor
         self.to_masks = to_masks
+        self.use_amp = use_amp
 
     @torch.no_grad()
     def __call__(
@@ -199,27 +201,28 @@ class ValidationStep:
         on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
     ) -> dict[str, float]:  # mask_batch, label_batch, logs
         self.model.eval()
-        images, gt_mask_batch, gt_label_batch = batch
-        gt_category_grids, mask_index = self.bath_adaptor(
-            mask_batch=gt_mask_batch, label_batch=gt_label_batch
-        )
-        pred_category_grids, pred_all_masks = self.model(images)
-        loss, category_loss, mask_loss = self.criterion(
-            (
-                pred_category_grids,
-                pred_all_masks,
-            ),
-            (
-                gt_category_grids,
-                gt_mask_batch,
-                mask_index,
-            ),
-        )
-        pred_mask_batch, pred_label_batch = self.to_masks(
-            pred_category_grids, pred_all_masks
-        )
-        if on_end is not None:
-            on_end(pred_mask_batch, gt_mask_batch)
+        with autocast(enabled=self.use_amp):
+            images, gt_mask_batch, gt_label_batch = batch
+            gt_category_grids, mask_index = self.bath_adaptor(
+                mask_batch=gt_mask_batch, label_batch=gt_label_batch
+            )
+            pred_category_grids, pred_all_masks = self.model(images)
+            loss, category_loss, mask_loss = self.criterion(
+                (
+                    pred_category_grids,
+                    pred_all_masks,
+                ),
+                (
+                    gt_category_grids,
+                    gt_mask_batch,
+                    mask_index,
+                ),
+            )
+            pred_mask_batch, pred_label_batch = self.to_masks(
+                pred_category_grids, pred_all_masks
+            )
+            if on_end is not None:
+                on_end(pred_mask_batch, gt_mask_batch)
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),
