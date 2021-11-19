@@ -8,17 +8,8 @@ from cellseg.solo.adaptors import (
     MasksToCenters,
     CentersToGridIndex,
     BatchAdaptor,
-    MasksToCenters,
 )
 from cellseg.data import draw_save
-
-
-def test_masks_to_centers() -> None:
-    masks0 = torch.ones((1, 4, 4))
-    masks1 = torch.zeros((1, 4, 4))
-    masks = torch.cat([masks0, masks1], dim=0)
-    m = MasksToCenters()
-    res = m(masks)
 
 
 def test_center_to_grid_index() -> None:

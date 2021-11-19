@@ -202,7 +202,10 @@ class CellTrainDataset(Dataset):
         )
         image = transformed["image"]
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
+        empty_filter = masks.sum(dim=[1, 2]) > 0
+        masks = masks[empty_filter]
         labels = torch.from_numpy(transformed["labels"])
+        labels = labels[empty_filter]
         return dict(
             id=image_id,
             image=image,
