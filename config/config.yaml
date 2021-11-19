@@ -29,7 +29,7 @@ model:
   grid_size: 32
   category_feat_range: [3, 5]
   mask_feat_range: [0, 3]
-  hidden_channels: 64
+  hidden_channels: 128
 
 
 mask_ap:
