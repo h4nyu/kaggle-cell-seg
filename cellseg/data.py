@@ -54,9 +54,11 @@ def draw_save(
     image: Tensor,
     masks: Optional[Tensor] = None,
 ) -> None:
+    image = image.to("cpu")
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
     if masks is not None:
+        masks = masks.to("cpu")
         plot = (
             draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
             / 255
@@ -111,6 +113,7 @@ class TrainTranform:
 
     def __call__(self, *args: Any, **kargs: Any) -> Any:
         return self.transform(*args, **kargs)
+
 
 class Tranform:
     def __init__(self, original_size: int):

@@ -33,12 +33,12 @@ class FocalLoss(nn.Module):
         pos_mask = gt.eq(1).float()
         neg_mask = gt.lt(1).float()
         pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
-        pos_loss = pos_loss.sum()
+        pos_loss = pos_loss.sum() / pos_mask.sum().clamp(min=1.0)
 
         neg_weight = (1 - gt.float()) ** beta
         neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
-        neg_loss = neg_loss.sum()
-        loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
+        neg_loss = neg_loss.sum() / neg_mask.sum().clamp(min=1.0)
+        loss = pos_loss + neg_loss
         return loss
 
 

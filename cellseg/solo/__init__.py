@@ -28,7 +28,7 @@ class Criterion:
         category_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
-        self.mask_loss = DiceLoss()
+        self.mask_loss = FocalLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
 
@@ -224,3 +224,34 @@ class ValidationStep:
             category_loss=category_loss.item(),
             mask_loss=mask_loss.item(),
         )
+
+
+class InferenceStep:
+    def __init__(
+        self,
+        model: Solo,
+        batch_adaptor: BatchAdaptor,
+        to_masks: ToMasks,
+        use_amp: bool = True,
+    ) -> None:
+        self.model = model
+        self.bath_adaptor = batch_adaptor
+        self.to_masks = to_masks
+        self.use_amp = use_amp
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        batch: Batch,
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:  # mask_batch, label_batch
+        self.model.eval()
+        with autocast(enabled=self.use_amp):
+            images, gt_mask_batch, gt_label_batch = batch
+            gt_category_grids, mask_index = self.bath_adaptor(
+                mask_batch=gt_mask_batch, label_batch=gt_label_batch
+            )
+            pred_category_grids, pred_all_masks = self.model(images)
+            pred_mask_batch, pred_label_batch = self.to_masks(
+                pred_category_grids, pred_all_masks
+            )
+            return images, pred_mask_batch, pred_label_batch
