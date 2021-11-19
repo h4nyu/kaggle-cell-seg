@@ -19,7 +19,10 @@ class MasksToCenters:
         self,
         masks: Tensor,
     ) -> Tensor:
-        _, h, w = masks.shape
+        n, h, w = masks.shape
+        device = masks.device
+        empty_filter = masks.sum(dim=[1, 2]) != 0
+        masks = masks[empty_filter]
         boxes = masks_to_boxes(masks)
         cxcy = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2]
         return cxcy

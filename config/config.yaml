@@ -8,8 +8,10 @@ log_keys:
   - category_loss
   - mask_loss
 
+
+root_path: &root_path /store
 data:
-  root_path: /store
+  root_path: *root_path
   train_file_path: /store/train.csv
   train_images_path: /store/train
   cell_types:
@@ -28,8 +30,8 @@ backbone:
 model:
   grid_size: 32
   category_feat_range: [3, 5]
-  mask_feat_range: [0, 3]
-  hidden_channels: 128
+  mask_feat_range: [0, 2]
+  hidden_channels: 64
 
 
 mask_ap:
@@ -40,14 +42,14 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.5
-  mask_threshold: 0.5
+  category_threshold: 0.7
+  mask_threshold: 0.2
 
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
 criterion:
-  category_weight: 3.0
+  category_weight: 1.0
   mask_weight: 1.0
 
 optimizer:
@@ -56,9 +58,9 @@ optimizer:
 train_loader:
   batch_size: 3 
   shuffle: true
-  num_workers: 6
+  num_workers: 4
 
 validation_loader:
   batch_size: 3
   shuffle: false
-  num_workers: 6
+  num_workers: 4

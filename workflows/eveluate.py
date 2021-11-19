@@ -29,10 +29,12 @@ from cellseg.data import (
     draw_save,
 )
 from torch.utils.data import Subset, DataLoader
+from pathlib import Path
 
 
 @hydra.main(config_path="/app/config", config_name="config")
 def main(cfg: DictConfig) -> None:
+    cfg.device = "cpu"
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
     backbone = EfficientNetFPN(**cfg.backbone)
@@ -63,7 +65,13 @@ def main(cfg: DictConfig) -> None:
             original_size=cfg.original_size,
         ),
     )
-    loader = DataLoader(dataset, collate_fn=collate_fn, **cfg.validation_loader)
+    loader = DataLoader(
+        Subset(dataset, indices=[0]),
+        collate_fn=collate_fn,
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+    )
 
     count = 0
     for batch in loader:
@@ -71,12 +79,13 @@ def main(cfg: DictConfig) -> None:
         images, mask_batch, _ = inference_step(batch)
         for image, masks in zip(images, mask_batch):
             path = os.path.join("/store", cfg.name, f"eval_{count}.png")
+            print(masks.shape)
             draw_save(
                 path,
-                torch.zeros(image.shape).short(),
+                image,
                 masks,
             )
-            logger.info(f'saved f{path=}')
+            logger.info(f"saved f{path=}")
             count += 1
 
 

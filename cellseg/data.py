@@ -92,6 +92,13 @@ TrainItem = TypedDict(
     },
 )
 
+normalize_mean = [0.485, 0.456, 0.406]
+normalize_std = [0.229, 0.224, 0.225]
+inv_normalize = A.Normalize(
+    mean=[-m / s for m, s in zip(normalize_mean, normalize_std)],
+    std=[1 / s for s in normalize_std],
+)
+
 
 class TrainTranform:
     def __init__(self, original_size: int):
@@ -100,13 +107,23 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                A.Resize(
-                    width=original_size,
-                    height=original_size,
-                    interpolation=cv2.INTER_LINEAR,
+                A.OneOf(
+                    [
+                        A.RandomCrop(
+                            width=original_size,
+                            height=original_size,
+                            p=0.5,
+                        ),
+                        A.Resize(
+                            width=original_size,
+                            height=original_size,
+                            interpolation=cv2.INTER_LINEAR,
+                            p=0.5,
+                        ),
+                    ],
                     p=1,
                 ),
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -126,7 +143,7 @@ class Tranform:
                     interpolation=cv2.INTER_LINEAR,
                     p=1,
                 ),
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -183,7 +200,7 @@ class CellTrainDataset(Dataset):
             masks=[m.numpy() for m in masks.short().unbind()],
             labels=labels.numpy(),
         )
-        image = transformed["image"] / 255
+        image = transformed["image"]
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
         labels = torch.from_numpy(transformed["labels"])
         return dict(

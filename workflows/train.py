@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 import os
 from hydra.utils import instantiate
 from typing import Any, Optional
-from logging import getLogger
+from logging import getLogger, FileHandler
 import torch_optimizer as optim
 from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep, ToMasks
 from cellseg.solo.adaptors import BatchAdaptor
@@ -20,12 +20,15 @@ from cellseg.data import (
     Tranform,
 )
 from torch.utils.data import Subset, DataLoader
+from pathlib import Path
 
 
 @hydra.main(config_path="/app/config", config_name="config")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
+    Path(os.path.join(cfg.data.root_path, f"{cfg.name}")).mkdir(exist_ok=True)
+    logger.addHandler(FileHandler(os.path.join(cfg.root_path, cfg.name, "train.log")))
     backbone = EfficientNetFPN(**cfg.backbone)
     checkpoint = Checkpoint[Solo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
