@@ -87,7 +87,8 @@ def main(cfg: DictConfig) -> None:
             batch = to_device(*batch)
             train_log = train_step(batch)
             train_reduer.accumulate(train_log)
-        logger.info(f"{epoch=} {train_reduer.value=} ")
+            logger.info(f"train batch {epoch=} {train_log} ")
+        logger.info(f"train {epoch=} {train_reduer.value} ")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch in val_loader:
@@ -98,7 +99,7 @@ def main(cfg: DictConfig) -> None:
         if score > val_reduer.value["loss"]:
             score = checkpoint.save(model, val_reduer.value["loss"])
             logger.info(f"new updated model!!")
-        logger.info(f"{epoch=} {score=} {val_reduer.value=}")
+        logger.info(f"eval {epoch=} {score=} {val_reduer.value}")
 
 
 if __name__ == "__main__":

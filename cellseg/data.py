@@ -123,7 +123,7 @@ class TrainTranform:
                     ],
                     p=1,
                 ),
-                A.Normalize(mean=normalize_mean, std=normalize_std),
+                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -143,7 +143,7 @@ class Tranform:
                     interpolation=cv2.INTER_LINEAR,
                     p=1,
                 ),
-                A.Normalize(mean=normalize_mean, std=normalize_std),
+                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -200,7 +200,7 @@ class CellTrainDataset(Dataset):
             masks=[m.numpy() for m in masks.short().unbind()],
             labels=labels.numpy(),
         )
-        image = transformed["image"]
+        image = transformed["image"] / 255
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
         empty_filter = masks.sum(dim=[1, 2]) > 0
         masks = masks[empty_filter]

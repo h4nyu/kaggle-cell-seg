@@ -18,20 +18,20 @@ data:
     - shsy5y - astro - cort
 
 num_classes: 1
-original_size: 384
+original_size: 256
 fold:
   index: 0
   n_splits: 6
   seed: *seed
 
 backbone:
-  name: "efficientnet-b2"
+  name: "efficientnet-b1"
 
 model:
   grid_size: 32
-  category_feat_range: [3, 5]
-  mask_feat_range: [0, 2]
-  hidden_channels: 64
+  category_feat_range: [2, 6]
+  mask_feat_range: [0, 6]
+  hidden_channels: 256
 
 
 mask_ap:
@@ -42,25 +42,25 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.7
-  mask_threshold: 0.2
+  category_threshold: 0.5
+  mask_threshold: 0.5
 
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
 criterion:
   category_weight: 1.0
-  mask_weight: 1.0
+  mask_weight: 2.0
 
 optimizer:
-  lr: 1e-3
+  lr: 1e-2
 
 train_loader:
-  batch_size: 3 
+  batch_size: 6 
   shuffle: true
-  num_workers: 4
+  num_workers: 5
 
 validation_loader:
-  batch_size: 3
+  batch_size: 5
   shuffle: false
-  num_workers: 4
+  num_workers: 6

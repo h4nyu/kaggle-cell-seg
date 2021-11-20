@@ -147,6 +147,7 @@ class TrainStep:
 
     def __call__(self, batch: Batch) -> dict[str, float]:
         self.model.train()
+        self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
             gt_category_grids, mask_index = self.bath_adaptor(
@@ -165,7 +166,6 @@ class TrainStep:
                 ),
             )
             self.scaler.scale(loss).backward()
-            self.optimizer.zero_grad()
             self.scaler.step(self.optimizer)
             self.scaler.update()
         return dict(
@@ -243,7 +243,7 @@ class InferenceStep:
     def __call__(
         self,
         batch: Batch,
-    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:  # mask_batch, label_batch
+    ) -> tuple[Tensor, list[Tensor], list[Tensor], Tensor]:  # mask_batch, label_batch
         self.model.eval()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
@@ -254,4 +254,4 @@ class InferenceStep:
             pred_mask_batch, pred_label_batch = self.to_masks(
                 pred_category_grids, pred_all_masks
             )
-            return images, pred_mask_batch, pred_label_batch
+            return images, pred_mask_batch, pred_label_batch, pred_category_grids

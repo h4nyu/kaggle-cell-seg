@@ -34,7 +34,6 @@ from pathlib import Path
 
 @hydra.main(config_path="/app/config", config_name="config")
 def main(cfg: DictConfig) -> None:
-    cfg.device = "cpu"
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
     backbone = EfficientNetFPN(**cfg.backbone)
@@ -76,14 +75,18 @@ def main(cfg: DictConfig) -> None:
     count = 0
     for batch in loader:
         batch = to_device(*batch)
-        images, mask_batch, _ = inference_step(batch)
-        for image, masks in zip(images, mask_batch):
+        images, mask_batch, _, grids = inference_step(batch)
+        for image, masks, grid in zip(images, mask_batch, grids):
             path = os.path.join("/store", cfg.name, f"eval_{count}.png")
+            # draw_save(
+            #     path,
+            #     (grid * 255).type(torch.uint8),
+            # )
             print(masks.shape)
             draw_save(
                 path,
                 image,
-                masks,
+                masks[:3],
             )
             logger.info(f"saved f{path=}")
             count += 1

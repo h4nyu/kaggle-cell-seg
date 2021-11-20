@@ -33,6 +33,8 @@ class Head(nn.Module):
                 f"conv{level_idx}",
                 CovNormAct(
                     in_channels=in_channels + 2,
+                    kernel_size=1,
+                    padding=0,
                     out_channels=hidden_channels,
                 ),
             )
