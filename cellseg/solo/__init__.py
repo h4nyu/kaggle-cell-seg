@@ -100,9 +100,15 @@ class ToMasks:
         self,
         category_threshold: float = 0.5,
         mask_threshold: float = 0.5,
+        kernel_size: int = 3,
     ) -> None:
         self.category_threshold = category_threshold
         self.mask_threshold = mask_threshold
+        self.max_pool = nn.MaxPool2d(
+            kernel_size=kernel_size,
+            padding=kernel_size // 2,
+            stride=1,
+        )
 
     @torch.no_grad()
     def __call__(
@@ -110,11 +116,19 @@ class ToMasks:
     ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch, mask_indecies
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
+        category_grids = category_grids * (
+            (self.max_pool(category_grids) == category_grids)
+            & (category_grids > self.category_threshold)
+        )
+
         to_index = CentersToGridIndex(grid_size=grid_size)
         all_masks = all_masks > self.mask_threshold
-        batch_indecies, labels, cy, cx, = (
-            (category_grids > self.category_threshold).nonzero().unbind(-1)
-        )
+        (
+            batch_indecies,
+            labels,
+            cy,
+            cx,
+        ) = category_grids.nonzero().unbind(-1)
         mask_indecies = to_index(torch.stack([cx, cy], dim=1))
         mask_batch: list[Tensor] = []
         label_batch: list[Tensor] = []

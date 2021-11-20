@@ -86,7 +86,7 @@ def main(cfg: DictConfig) -> None:
             draw_save(
                 path,
                 image,
-                masks[:3],
+                masks,
             )
             logger.info(f"saved f{path=}")
             count += 1
