@@ -90,10 +90,6 @@ class Solo(nn.Module):
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
         category_grid = self.category_head(category_feats)
-        if category_grid.shape[2:] != (self.grid_size, self.grid_size):
-            category_grid = F.interpolate(
-                category_grid, size=(self.grid_size, self.grid_size)
-            )
         mask_feats = features[self.mask_feat_range[0] : self.mask_feat_range[1]]
         masks = self.mask_head(mask_feats)
         return (category_grid, masks)

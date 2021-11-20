@@ -123,7 +123,7 @@ class TrainTranform:
                     ],
                     p=1,
                 ),
-                A.Normalize(mean=normalize_mean, std=normalize_std),
+                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -143,7 +143,7 @@ class Tranform:
                     interpolation=cv2.INTER_LINEAR,
                     p=1,
                 ),
-                A.Normalize(mean=normalize_mean, std=normalize_std),
+                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
