@@ -93,13 +93,12 @@ def main(cfg: DictConfig) -> None:
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch in val_loader:
             batch = to_device(*batch)
-            validation_log = validation_step(batch)
+            validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
             val_reduer.accumulate(validation_log)
-
         if score > val_reduer.value["loss"]:
             score = checkpoint.save(model, val_reduer.value["loss"])
             logger.info(f"save checkpoint")
-        logger.info(f"eval {score=} {val_reduer.value}")
+        logger.info(f"eval {score=} {val_reduer.value} {mask_ap.value=}")
 
 
 if __name__ == "__main__":

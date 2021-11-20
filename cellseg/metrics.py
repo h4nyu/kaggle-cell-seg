@@ -110,5 +110,4 @@ class MaskAP:
                 pred_masks=pred_masks, gt_masks=gt_masks, threshold=th
             )
             running_p += p
-            print(th, p)
         return running_p / len(self.thresholds)
