@@ -7,6 +7,7 @@ from cellseg.data import (
     CellTrainDataset,
     Tranform,
     inv_normalize,
+    LiveCellDataset,
 )
 from hydra import compose, initialize
 import pandas as pd
@@ -73,3 +74,12 @@ def test_cell_dataset() -> None:
     assert image.shape == (3, cfg.original_size, cfg.original_size)
     assert image.shape[1:] == masks.shape[1:]
     assert labels.shape[0] == masks.shape[0]
+
+
+@pytest.mark.skipif(not has_data, reason="no data volume")
+def test_live_cell_dataset() -> None:
+    transform = Tranform(original_size=cfg.original_size)
+    dataset = LiveCellDataset(
+        **cfg.live_cell_dataset,
+        transform=transform,
+    )

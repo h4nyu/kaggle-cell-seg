@@ -49,7 +49,14 @@ to_masks:
 
 dataset:
   img_dir: /store/train
-  train_csv: /store/train.csv
+  annotation: /store/train.csv
+
+live_cell_dataset:
+  img_dir: /store/LiveCellDataset/images/livecell_train_val_images
+  annotation: /store/LiveCellDataset/annotations/LIVECell/livecell_coco_train.json
+  cell_types:
+    - shsy5y
+
 criterion:
   category_weight: 1.0
   mask_weight: 1.0

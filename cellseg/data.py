@@ -171,11 +171,11 @@ class CellTrainDataset(Dataset):
     def __init__(
         self,
         img_dir: str = "/store/train",
-        train_csv: str = "/store/train.csv",
+        annotation: str = "/store/train.csv",
         transform: Optional[Callable] = None,
     ) -> None:
         self.img_dir = img_dir
-        df = pd.read_csv(train_csv)
+        df = pd.read_csv(annotation)
         self.df = df
         self.indecies = self.df["id"].unique()
         self.stratums = LabelEncoder().fit_transform(
@@ -212,6 +212,18 @@ class CellTrainDataset(Dataset):
             masks=masks,
             labels=labels,
         )
+
+
+class LiveCellDataset(Dataset):
+    def __init__(
+        self,
+        img_dir: str = "/store/train",
+        annotation: str = "/store/train.csv",
+        cell_types: list[str] = ["shsy5y"],
+        transform: Optional[Callable] = None,
+    ) -> None:
+
+        ...
 
 
 def get_fold_indices(
