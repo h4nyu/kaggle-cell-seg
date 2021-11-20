@@ -65,7 +65,7 @@ def main(cfg: DictConfig) -> None:
         ),
     )
     loader = DataLoader(
-        Subset(dataset, indices=list(range(len(dataset)))),
+        Subset(dataset, indices=list(range(10))),
         collate_fn=collate_fn,
         **cfg.validation_loader,
     )
