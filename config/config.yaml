@@ -44,8 +44,8 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.5
-  mask_threshold: 0.5
+  category_threshold: 0.1
+  mask_threshold: 0.7
 
 dataset:
   img_dir: /store/train
@@ -55,7 +55,7 @@ criterion:
   mask_weight: 2.0
 
 optimizer:
-  lr: 1e-3
+  lr: 1e-2
 
 train_loader:
   batch_size: 6 
