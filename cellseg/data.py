@@ -126,7 +126,7 @@ class TrainTranform:
                         A.RandomResizedCrop(
                             width=original_size,
                             height=original_size,
-                            scale=[0.5, 1.0],
+                            scale=[0.8, 1.0],
                             ratio=[0.5, 1.5],
                             p=0.8,
                         ),

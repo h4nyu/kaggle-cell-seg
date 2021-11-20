@@ -105,9 +105,12 @@ class MaskAP:
                 scale_factor=1 / self.reduce_size,
             )[0].bool()
         running_p = 0.0
+        log: dict[float, float] = {}
         for th in self.thresholds:
             p = self.precision_at(
                 pred_masks=pred_masks, gt_masks=gt_masks, threshold=th
             )
             running_p += p
+            log[th] = p
+        print(log)
         return running_p / len(self.thresholds)
