@@ -7,7 +7,7 @@ from cellseg.loss import FocalLoss, DiceLoss
     "factor, expected",
     [
         (0.01, 0.0),
-        (0.99, 40.6),
+        (0.99, 4.5),
     ],
 )
 def test_binary_focal_loss(factor: float, expected: float) -> None:
