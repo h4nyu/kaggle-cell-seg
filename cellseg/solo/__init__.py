@@ -134,8 +134,13 @@ class ToMasks:
         label_batch: list[Tensor] = []
         for batch_idx in range(batch_size):
             filterd = batch_indecies == batch_idx
-            label_batch.append(labels[filterd])
-            mask_batch.append(all_masks[batch_idx][mask_indecies[filterd]])
+            masks = all_masks[batch_idx][mask_indecies[filterd]]
+            labels = labels[filterd]
+            empty_filter = masks.sum(dim=[1, 2]) > 0
+            masks = masks[empty_filter]
+            labels = labels[empty_filter]
+            label_batch.append(labels)
+            mask_batch.append(masks)
         return mask_batch, label_batch
 
 

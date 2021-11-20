@@ -78,10 +78,6 @@ def main(cfg: DictConfig) -> None:
         images, mask_batch, _, grids = inference_step(batch)
         for image, masks, grid in zip(images, mask_batch, grids):
             path = os.path.join("/store", cfg.name, f"eval_{count}.png")
-            # draw_save(
-            #     path,
-            #     (grid * 255).type(torch.uint8),
-            # )
             print(masks.shape)
             draw_save(
                 path,
