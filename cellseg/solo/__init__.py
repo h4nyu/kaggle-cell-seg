@@ -209,7 +209,6 @@ class ValidationStep:
     def __call__(
         self,
         batch: Batch,
-        on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
     ) -> dict[str, float]:  # mask_batch, label_batch, logs
         self.model.eval()
         with autocast(enabled=self.use_amp):
@@ -229,11 +228,6 @@ class ValidationStep:
                     mask_index,
                 ),
             )
-            pred_mask_batch, pred_label_batch = self.to_masks(
-                pred_category_grids, pred_all_masks
-            )
-            if on_end is not None:
-                on_end(pred_mask_batch, gt_mask_batch)
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),

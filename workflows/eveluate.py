@@ -73,6 +73,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     count = 0
+    mask_ap = MaskAP()
     for batch in loader:
         batch = to_device(*batch)
         images, mask_batch, _, grids = inference_step(batch)
