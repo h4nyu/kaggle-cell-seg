@@ -1,19 +1,19 @@
 import pytest
 import torch
-from cellseg.loss import SigmoidFocalLoss, DiceLoss
+from cellseg.loss import FocalLoss, DiceLoss
 
 
 @pytest.mark.parametrize(
     "factor, expected",
     [
-        (-100.0, 0.0),
-        (100.0, 300.0),
+        (0.01, 0.0),
+        (0.99, 4.5),
     ],
 )
 def test_binary_focal_loss(factor: float, expected: float) -> None:
-    loss = SigmoidFocalLoss()
+    loss = FocalLoss()
     inputs = torch.ones(1, 1, 3, 3) * factor
-    targets = torch.zeros(1, 1, 3, 3)
+    targets = torch.zeros(1, 1, 3, 3).bool()
     res = loss(inputs, targets)
     assert round(res.item(), 1) == expected
 
@@ -21,8 +21,8 @@ def test_binary_focal_loss(factor: float, expected: float) -> None:
 @pytest.mark.parametrize(
     "factor, expected",
     [
-        (-100.0, 1.0),
-        (100.0, 0.0),
+        (0.1, 0.8),
+        (0.9, 0.1),
     ],
 )
 def test_dice_loss(factor: float, expected: float) -> None:

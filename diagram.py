@@ -38,6 +38,19 @@ with Diagram("train", show=False):
     [pred_grid, gt_grid] >> category_loss
     [mask_loss, category_loss] >> loss
 
+with Diagram("inference", show=False):
+    model = FPN("model")
+    image = Tensor3D("image")
+    mask_index = Tensor1D("mask_index")
+
+    cagetory_grid = CategoryGrid("pred_grid")
+    all_masks = InsntanceMasks("pred_all_masks")
+    final_masks = Tensor3D("final_masks")
+
+    image >> model >> [cagetory_grid, all_masks]
+    cagetory_grid >> mask_index >> final_masks
+    all_masks >> final_masks
+
 
 with Diagram("model", show=False):
     image = Tensor3D("image 512")

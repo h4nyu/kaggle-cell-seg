@@ -6,6 +6,7 @@ from cellseg.data import (
     draw_save,
     CellTrainDataset,
     Tranform,
+    inv_normalize,
 )
 from hydra import compose, initialize
 import pandas as pd

@@ -54,9 +54,11 @@ def draw_save(
     image: Tensor,
     masks: Optional[Tensor] = None,
 ) -> None:
+    image = image.to("cpu")
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
     if masks is not None:
+        masks = masks.to("cpu")
         plot = (
             draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
             / 255
@@ -90,6 +92,45 @@ TrainItem = TypedDict(
     },
 )
 
+normalize_mean = [0.485, 0.456, 0.406]
+normalize_std = [0.229, 0.224, 0.225]
+inv_normalize = A.Normalize(
+    mean=[-m / s for m, s in zip(normalize_mean, normalize_std)],
+    std=[1 / s for s in normalize_std],
+)
+
+
+class TrainTranform:
+    def __init__(self, original_size: int):
+
+        self.transform = A.Compose(
+            [
+                A.Flip(),
+                A.RandomRotate90(),
+                A.OneOf(
+                    [
+                        A.RandomCrop(
+                            width=original_size,
+                            height=original_size,
+                            p=0.5,
+                        ),
+                        A.Resize(
+                            width=original_size,
+                            height=original_size,
+                            interpolation=cv2.INTER_LINEAR,
+                            p=0.5,
+                        ),
+                    ],
+                    p=1,
+                ),
+                # A.Normalize(mean=normalize_mean, std=normalize_std),
+                ToTensorV2(),
+            ]
+        )
+
+    def __call__(self, *args: Any, **kargs: Any) -> Any:
+        return self.transform(*args, **kargs)
+
 
 class Tranform:
     def __init__(self, original_size: int):
@@ -102,6 +143,7 @@ class Tranform:
                     interpolation=cv2.INTER_LINEAR,
                     p=1,
                 ),
+                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -160,7 +202,10 @@ class CellTrainDataset(Dataset):
         )
         image = transformed["image"] / 255
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
+        empty_filter = masks.sum(dim=[1, 2]) > 0
+        masks = masks[empty_filter]
         labels = torch.from_numpy(transformed["labels"])
+        labels = labels[empty_filter]
         return dict(
             id=image_id,
             image=image,
