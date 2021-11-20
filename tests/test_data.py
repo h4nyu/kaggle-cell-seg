@@ -65,7 +65,7 @@ def test_cell_train_aug() -> None:
         transform=transform,
     )
     assert len(dataset) == 606
-    for i in range(10):
+    for i in range(3):
         sample = dataset[1]
         assert sample is not None
         image = sample["image"]
