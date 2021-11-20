@@ -107,23 +107,32 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
+                A.Blur(p=0.3),
+                A.Rotate([15, 15], p=1),
                 A.OneOf(
                     [
-                        A.RandomCrop(
-                            width=original_size,
-                            height=original_size,
-                            p=0.5,
-                        ),
+                        A.Affine(mode=2),
+                        A.GridDistortion(p=0.3),
+                    ]
+                ),
+                A.OneOf(
+                    [
                         A.Resize(
                             width=original_size,
                             height=original_size,
                             interpolation=cv2.INTER_LINEAR,
-                            p=0.5,
+                            p=0.2,
+                        ),
+                        A.RandomResizedCrop(
+                            width=original_size,
+                            height=original_size,
+                            scale=[0.5, 1.0],
+                            ratio=[0.5, 1.5],
+                            p=0.8,
                         ),
                     ],
-                    p=1,
+                    p=1.0,
                 ),
-                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )
@@ -143,7 +152,6 @@ class Tranform:
                     interpolation=cv2.INTER_LINEAR,
                     p=1,
                 ),
-                # A.Normalize(mean=normalize_mean, std=normalize_std),
                 ToTensorV2(),
             ]
         )

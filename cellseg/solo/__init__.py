@@ -100,9 +100,15 @@ class ToMasks:
         self,
         category_threshold: float = 0.5,
         mask_threshold: float = 0.5,
+        kernel_size: int = 3,
     ) -> None:
         self.category_threshold = category_threshold
         self.mask_threshold = mask_threshold
+        self.max_pool = nn.MaxPool2d(
+            kernel_size=kernel_size,
+            padding=kernel_size // 2,
+            stride=1,
+        )
 
     @torch.no_grad()
     def __call__(
@@ -110,18 +116,31 @@ class ToMasks:
     ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch, mask_indecies
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
+        category_grids = category_grids * (
+            (self.max_pool(category_grids) == category_grids)
+            & (category_grids > self.category_threshold)
+        )
+
         to_index = CentersToGridIndex(grid_size=grid_size)
         all_masks = all_masks > self.mask_threshold
-        batch_indecies, labels, cy, cx, = (
-            (category_grids > self.category_threshold).nonzero().unbind(-1)
-        )
+        (
+            batch_indecies,
+            labels,
+            cy,
+            cx,
+        ) = category_grids.nonzero().unbind(-1)
         mask_indecies = to_index(torch.stack([cx, cy], dim=1))
         mask_batch: list[Tensor] = []
         label_batch: list[Tensor] = []
         for batch_idx in range(batch_size):
             filterd = batch_indecies == batch_idx
-            label_batch.append(labels[filterd])
-            mask_batch.append(all_masks[batch_idx][mask_indecies[filterd]])
+            masks = all_masks[batch_idx][mask_indecies[filterd]]
+            labels = labels[filterd]
+            empty_filter = masks.sum(dim=[1, 2]) > 0
+            masks = masks[empty_filter]
+            labels = labels[empty_filter]
+            label_batch.append(labels)
+            mask_batch.append(masks)
         return mask_batch, label_batch
 
 
@@ -190,7 +209,6 @@ class ValidationStep:
     def __call__(
         self,
         batch: Batch,
-        on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
     ) -> dict[str, float]:  # mask_batch, label_batch, logs
         self.model.eval()
         with autocast(enabled=self.use_amp):
@@ -210,11 +228,6 @@ class ValidationStep:
                     mask_index,
                 ),
             )
-            pred_mask_batch, pred_label_batch = self.to_masks(
-                pred_category_grids, pred_all_masks
-            )
-            if on_end is not None:
-                on_end(pred_mask_batch, gt_mask_batch)
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),

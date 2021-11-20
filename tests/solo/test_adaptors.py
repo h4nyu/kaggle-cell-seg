@@ -33,10 +33,6 @@ def test_category_adaptor() -> None:
                 1,
                 2,
             ],
-            [
-                2,
-                2,
-            ],
         ]
     )
     labels = torch.zeros(len(centers))
@@ -52,9 +48,8 @@ def test_category_adaptor() -> None:
     )
     assert category_grid.shape == (num_classes, grid_size, grid_size)
     assert category_grid.sum() == len(centers)
-    assert category_grid[0, 2, 2] == 1
     assert category_grid[0, 2, 1] == 1
-    assert mask_index.tolist() == [17, 18]
+    assert mask_index.tolist() == [17]
 
 
 def test_batch_adaptor() -> None:

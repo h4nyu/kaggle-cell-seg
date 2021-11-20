@@ -6,6 +6,7 @@ from cellseg.data import (
     draw_save,
     CellTrainDataset,
     Tranform,
+    TrainTranform,
     inv_normalize,
 )
 from hydra import compose, initialize
@@ -58,18 +59,37 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
-def test_cell_dataset() -> None:
+def test_cell_train_aug() -> None:
+    transform = TrainTranform(original_size=cfg.original_size)
+    dataset = CellTrainDataset(
+        transform=transform,
+    )
+    assert len(dataset) == 606
+    for i in range(3):
+        sample = dataset[1]
+        assert sample is not None
+        image = sample["image"]
+        masks = sample["masks"]
+        labels = sample["labels"]
+        draw_save(f"/store/test-cell-train-{i}.png", image, masks)
+        assert image.shape == (3, cfg.original_size, cfg.original_size)
+        assert image.shape[1:] == masks.shape[1:]
+        assert labels.shape[0] == masks.shape[0]
+
+
+@pytest.mark.skipif(not has_data, reason="no data volume")
+def test_cell_validation() -> None:
     transform = Tranform(original_size=cfg.original_size)
     dataset = CellTrainDataset(
         transform=transform,
     )
     assert len(dataset) == 606
-    sample = dataset[0]
+    sample = dataset[1]
     assert sample is not None
     image = sample["image"]
     masks = sample["masks"]
     labels = sample["labels"]
-    draw_save("/store/test-dataset.png", image, masks)
+    draw_save(f"/store/test-cell-validation.png", image, masks)
     assert image.shape == (3, cfg.original_size, cfg.original_size)
     assert image.shape[1:] == masks.shape[1:]
     assert labels.shape[0] == masks.shape[0]
