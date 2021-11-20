@@ -67,26 +67,33 @@ def main(cfg: DictConfig) -> None:
     loader = DataLoader(
         Subset(dataset, indices=list(range(10))),
         collate_fn=collate_fn,
-        batch_size=1,
-        shuffle=False,
-        num_workers=0,
+        **cfg.validation_loader,
     )
 
-    count = 0
+    idx = 0
     mask_ap = MaskAP()
     for batch in loader:
         batch = to_device(*batch)
-        images, mask_batch, _, grids = inference_step(batch)
-        for image, masks, grid in zip(images, mask_batch, grids):
-            path = os.path.join("/store", cfg.name, f"eval_{count}.png")
-            print(masks.shape)
+        images, gt_mask_batch, _ = batch
+        mask_batch, _ = inference_step(batch)
+        for image, masks, gt_masks in zip(images, mask_batch, gt_mask_batch):
+            pred_count = masks.shape[0]
+            gt_count = gt_masks.shape[0]
+            logger.info(f"{idx=} {pred_count=} {gt_count=}")
+            mask_ap.accumulate(masks, gt_masks)
             draw_save(
-                path,
+                os.path.join("/store", cfg.name, f"{idx}_pred.png"),
                 image,
                 masks,
             )
-            logger.info(f"saved f{path=}")
-            count += 1
+            draw_save(
+                os.path.join("/store", cfg.name, f"{idx}_gt.png"),
+                image,
+                gt_masks,
+            )
+            idx += 1
+    score = mask_ap.value
+    logger.info(f"{score=}")
 
 
 if __name__ == "__main__":

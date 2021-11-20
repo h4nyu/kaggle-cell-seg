@@ -135,12 +135,9 @@ class ToMasks:
         for batch_idx in range(batch_size):
             filterd = batch_indecies == batch_idx
             masks = all_masks[batch_idx][mask_indecies[filterd]]
-            labels = labels[filterd]
             empty_filter = masks.sum(dim=[1, 2]) > 0
-            masks = masks[empty_filter]
-            labels = labels[empty_filter]
-            label_batch.append(labels)
-            mask_batch.append(masks)
+            label_batch.append(labels[filterd][empty_filter])
+            mask_batch.append(masks[empty_filter])
         return mask_batch, label_batch
 
 
@@ -252,7 +249,7 @@ class InferenceStep:
     def __call__(
         self,
         batch: Batch,
-    ) -> tuple[Tensor, list[Tensor], list[Tensor], Tensor]:  # mask_batch, label_batch
+    ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch
         self.model.eval()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
@@ -263,4 +260,4 @@ class InferenceStep:
             pred_mask_batch, pred_label_batch = self.to_masks(
                 pred_category_grids, pred_all_masks
             )
-            return images, pred_mask_batch, pred_label_batch, pred_category_grids
+            return pred_mask_batch, pred_label_batch

@@ -39,13 +39,12 @@ model:
 mask_ap:
   reduce_size: 8
   use_batch: true
-  thresholds:
-    - 0.7
 
 
 to_masks:
-  category_threshold: 0.6
-  mask_threshold: 0.80
+  category_threshold: 0.55
+  mask_threshold: 0.87
+  kernel_size: 3
 
 dataset:
   img_dir: /store/train

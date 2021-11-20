@@ -106,7 +106,9 @@ class MaskAP:
             )[0].bool()
         running_p = 0.0
         for th in self.thresholds:
-            running_p += self.precision_at(
+            p = self.precision_at(
                 pred_masks=pred_masks, gt_masks=gt_masks, threshold=th
             )
+            running_p += p
+            print(th, p)
         return running_p / len(self.thresholds)
