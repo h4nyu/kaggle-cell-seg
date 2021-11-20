@@ -107,7 +107,6 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                A.Blur(p=0.3),
                 A.Rotate([15, 15], p=1),
                 A.OneOf(
                     [
