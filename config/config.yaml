@@ -44,8 +44,9 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.5
-  mask_threshold: 0.8
+  category_threshold: 0.35
+  mask_threshold: 0.88
+  kernel_size: 3
 
 dataset:
   img_dir: /store/train

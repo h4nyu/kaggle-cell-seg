@@ -2,7 +2,8 @@ from typing import Optional
 import numpy as np
 import torch
 from torch import Tensor
-from torchvision.utils import draw_segmentation_masks
+from torchvision.utils import draw_segmentation_masks, draw_bounding_boxes
+
 import torchvision.transforms.functional as F
 from torchvision.utils import draw_segmentation_masks, save_image
 import pandas as pd
@@ -14,6 +15,8 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import StratifiedKFold
 import albumentations as A
+from torchvision.ops import masks_to_boxes
+
 
 
 def seed(num: int) -> None:
@@ -61,8 +64,10 @@ def draw_save(
         masks = masks.to("cpu")
         plot = (
             draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
-            / 255
         )
+        boxes = masks_to_boxes(masks)
+        plot = draw_bounding_boxes(plot, boxes)
+        plot = plot / 255
     else:
         plot = image
     save_image(plot, path)
