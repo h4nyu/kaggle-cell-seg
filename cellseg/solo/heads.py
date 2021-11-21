@@ -41,7 +41,7 @@ class Head(nn.Module):
                     CovNormAct(
                         in_channels=hidden_channels + 2,
                         out_channels=hidden_channels,
-                    )
+                    ),
                 )
             )
 
