@@ -8,8 +8,14 @@ from logging import getLogger, FileHandler
 
 # import torch_optimizer as optim
 import torch.optim as optim
-from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep, ToMasks
-from cellseg.solo.adaptors import BatchAdaptor
+from cellseg.solo import (
+    Solo,
+    TrainStep,
+    Criterion,
+    ValidationStep,
+    ToMasks,
+    BatchAdaptor,
+)
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
 from cellseg.util import seed_everything, Checkpoint, MeanReduceDict

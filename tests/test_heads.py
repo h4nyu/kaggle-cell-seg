@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.solo.heads import Head
+from cellseg.heads import Head
 
 
 @pytest.mark.parametrize(

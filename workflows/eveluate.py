@@ -14,8 +14,8 @@ from cellseg.solo import (
     ValidationStep,
     ToMasks,
     InferenceStep,
+    BatchAdaptor,
 )
-from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
 from cellseg.util import seed_everything, Checkpoint, MeanReduceDict

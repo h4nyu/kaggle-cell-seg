@@ -1,5 +1,5 @@
 import torch
-from cellseg.solo.convs import CovNormAct
+from cellseg.convs import CovNormAct
 
 
 def test_conv_norm_act() -> None:

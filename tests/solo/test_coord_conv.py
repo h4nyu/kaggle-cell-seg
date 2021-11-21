@@ -1,5 +1,5 @@
 import torch
-from cellseg.solo.coord_conv import CoordConv
+from cellseg.coord_conv import CoordConv
 
 
 def test_coord_conv() -> None:
