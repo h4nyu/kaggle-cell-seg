@@ -1,4 +1,4 @@
-name: solo-baseline-unet-mid
+name: solo-baseline-unet-large
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -27,13 +27,13 @@ fold:
   seed: *seed
 
 backbone:
-  name: "efficientnet-b1"
+  name: "efficientnet-b0"
 
 model:
-  grid_size: 24
-  category_feat_range: [4, 6]
-  mask_feat_range: [0, 6]
-  hidden_channels: 128
+  grid_size: 48
+  category_feat_range: [3, 6]
+  mask_feat_range: [0, 2]
+  hidden_channels: 64
 
 
 mask_ap:
@@ -59,11 +59,11 @@ optimizer:
   lr: 1e-3
 
 train_loader:
-  batch_size: 3 
+  batch_size: 2 
   shuffle: true
   num_workers: 5
 
 validation_loader:
-  batch_size: 3
+  batch_size: 2
   shuffle: false
   num_workers: 5

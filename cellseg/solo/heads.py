@@ -13,12 +13,14 @@ class Head(nn.Module):
         num_classes: int,
         channels: list[int] = [],
         reductions: list[int] = [],
+        use_cord: bool = False,
     ) -> None:
         super().__init__()
         self.coord_conv = CoordConv()
         self.in_convs = nn.ModuleList()
         self.merge_convs = nn.ModuleList()
         self.upsamples = nn.ModuleList()
+        self.use_cord = use_cord
         for idx, in_channels in enumerate(channels):
             self.in_convs.append(
                 CovNormAct(
@@ -36,15 +38,14 @@ class Head(nn.Module):
             )
 
             self.merge_convs.append(
-                nn.Sequential(
-                    CoordConv(),
-                    CovNormAct(
-                        in_channels=hidden_channels + 2,
-                        out_channels=hidden_channels,
-                    ),
-                )
+                CovNormAct(
+                    in_channels=hidden_channels + 2
+                    if self.use_cord
+                    else hidden_channels,
+                    out_channels=hidden_channels,
+                ),
             )
-
+        self.coord_conv = CoordConv()
         self.out_conv = CovNormAct(
             in_channels=hidden_channels,
             out_channels=num_classes,
@@ -61,6 +62,9 @@ class Head(nn.Module):
             self.upsamples[::-1],
             self.merge_convs[::-1],
         ):
-            out = merge_conv(up(out) + in_conv(feat))
+            if self.use_cord:
+                out = merge_conv(self.coord_conv(up(out) + in_conv(feat)))
+            else:
+                out = merge_conv(up(out) + in_conv(feat))
         out = self.out_conv(out)
         return out
