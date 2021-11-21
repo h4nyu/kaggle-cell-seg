@@ -1,4 +1,4 @@
-name: solo-baseline-mask
+name: solo-baseline-unet-slim
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -20,17 +20,17 @@ data:
     - cort
 
 num_classes: 1
-original_size: 384
+original_size: 256
 fold:
   index: 0
   n_splits: 6
   seed: *seed
 
 backbone:
-  name: "efficientnet-b2"
+  name: "efficientnet-b1"
 
 model:
-  grid_size: 24
+  grid_size: 16
   category_feat_range: [4, 6]
   mask_feat_range: [0, 2]
   hidden_channels: 128
@@ -59,11 +59,11 @@ optimizer:
   lr: 1e-3
 
 train_loader:
-  batch_size: 3 
+  batch_size: 6 
   shuffle: true
   num_workers: 5
 
 validation_loader:
-  batch_size: 4
+  batch_size: 6
   shuffle: false
   num_workers: 5

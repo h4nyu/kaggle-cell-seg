@@ -5,7 +5,9 @@ import os
 from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger, FileHandler
-import torch_optimizer as optim
+
+# import torch_optimizer as optim
+import torch.optim as optim
 from cellseg.solo import Solo, TrainStep, Criterion, ValidationStep, ToMasks
 from cellseg.solo.adaptors import BatchAdaptor
 from cellseg.metrics import MaskAP
@@ -44,7 +46,7 @@ def main(cfg: DictConfig) -> None:
         original_size=cfg.original_size,
     )
     train_step = TrainStep(
-        optimizer=optim.AdaBound(model.parameters(), **cfg.optimizer),
+        optimizer=optim.Adam(model.parameters(), **cfg.optimizer),
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
