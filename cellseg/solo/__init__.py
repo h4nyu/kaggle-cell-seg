@@ -75,6 +75,7 @@ class Solo(nn.Module):
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
+            use_cord=False,
         )
 
         self.mask_head = Head(
@@ -82,6 +83,7 @@ class Solo(nn.Module):
             num_classes=grid_size ** 2,
             channels=backbone.channels[mask_feat_range[0] : mask_feat_range[1]],
             reductions=backbone.reductions[mask_feat_range[0] : mask_feat_range[1]],
+            use_cord=True,
         )
 
     def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor]:
@@ -207,7 +209,7 @@ class ValidationStep:
         self,
         batch: Batch,
         on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
-    ) -> dict[str, float]:  # mask_batch, label_batch, logs
+    ) -> dict[str, float]:  # logs
         self.model.eval()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
