@@ -36,9 +36,12 @@ class Head(nn.Module):
             )
 
             self.merge_convs.append(
-                CovNormAct(
-                    in_channels=hidden_channels,
-                    out_channels=hidden_channels,
+                nn.Sequential(
+                    CoordConv(),
+                    CovNormAct(
+                        in_channels=hidden_channels + 2,
+                        out_channels=hidden_channels,
+                    )
                 )
             )
 
