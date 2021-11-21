@@ -20,7 +20,7 @@ data:
     - cort
 
 num_classes: 1
-original_size: 384
+original_size: 256
 fold:
   index: 0
   n_splits: 6
@@ -30,14 +30,14 @@ backbone:
   name: "efficientnet-b1"
 
 model:
-  grid_size: 24
+  grid_size: 16
   category_feat_range: [4, 6]
-  mask_feat_range: [0, 2]
+  mask_feat_range: [0, 6]
   hidden_channels: 128
 
 
 mask_ap:
-  reduce_size: 4
+  reduce_size: 8
   use_batch: true
   thresholds:
     - 0.7
