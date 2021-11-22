@@ -69,6 +69,8 @@ class ToCategoryGrid:
         cagetory_grid = torch.zeros(
             self.num_classes, self.grid_size, self.grid_size, dtype=dtype
         ).to(device)
+        centers, indices = torch.unique(centers,  dim=0, return_inverse=True)
+        indices = torch.unique(indices, dim=0)
         mask_index = self.to_index(centers)
         index = labels * self.grid_size ** 2 + mask_index
         flattend = cagetory_grid.view(-1)
