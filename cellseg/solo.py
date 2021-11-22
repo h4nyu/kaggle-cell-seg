@@ -3,19 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from .heads import Head
-from typing import Protocol, TypedDict, Optional, Callable
+from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
-from typing import Any, Optional
 from torchvision.ops import masks_to_boxes, box_convert
-
-
-class FPNLike(Protocol):
-    channels: list[int]
-    reductions: list[int]
-
-    def __call__(self, x: Tensor) -> list[Tensor]:
-        ...
+from .backbones import FPNLike
 
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch

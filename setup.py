@@ -14,7 +14,6 @@ setup(
         "efficientnet-pytorch",
         "albumentations",
         "torch_optimizer",
-        "segmentation_models_pytorch",
         "torch@https://download.pytorch.org/whl/cu113/torch-1.10.0%2Bcu113-cp39-cp39-linux_x86_64.whl",
         "torchvision@https://download.pytorch.org/whl/cu113/torchvision-0.11.1%2Bcu113-cp39-cp39-linux_x86_64.whl",
     ],
