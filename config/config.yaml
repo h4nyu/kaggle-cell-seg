@@ -56,7 +56,7 @@ criterion:
   mask_weight: 1.0
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-3
 
 train_loader:
   batch_size: 2 
