@@ -85,6 +85,7 @@ def main(cfg: DictConfig) -> None:
             pred_count = masks.shape[0]
             gt_count = gt_masks.shape[0]
             mask_ap.accumulate(masks, gt_masks)
+            logger.info(f"{idx=} {pred_count=} {gt_count=} {mask_ap.value=}")
             draw_save(
                 os.path.join("/store", cfg.name, f"{idx}_pred.png"),
                 image,
@@ -95,7 +96,6 @@ def main(cfg: DictConfig) -> None:
                 image,
                 gt_masks,
             )
-            logger.info(f"{idx=} {pred_count=} {gt_count=} {mask_ap.value=}")
             idx += 1
     score = mask_ap.value
     logger.info(f"{score=}")

@@ -82,19 +82,17 @@ class TrainTranform:
                 # ),
                 A.OneOf(
                     [
-                        A.Resize(
-                            width=original_size,
-                            height=original_size,
-                            interpolation=cv2.INTER_LINEAR,
-                            p=0.2,
-                        ),
-                        # A.RandomResizedCrop(
+                        # A.Resize(
                         #     width=original_size,
                         #     height=original_size,
-                        #     scale=[0.8, 1.0],
-                        #     ratio=[0.5, 1.5],
-                        #     p=0.8,
+                        #     interpolation=cv2.INTER_LINEAR,
+                        #     p=0.2,
                         # ),
+                        A.RandomCrop(
+                            width=original_size,
+                            height=original_size,
+                            p=1.0
+                        ),
                     ],
                     p=1.0,
                 ),
@@ -111,11 +109,10 @@ class Tranform:
 
         self.transform = A.Compose(
             [
-                A.Resize(
+                A.RandomCrop(
                     width=original_size,
                     height=original_size,
-                    interpolation=cv2.INTER_LINEAR,
-                    p=1,
+                    p=1.0
                 ),
                 ToTensorV2(),
             ]

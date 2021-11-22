@@ -94,8 +94,12 @@ class MaskAP:
 
     @torch.no_grad()
     def __call__(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> float:
-        if len(pred_masks) == 0:
+        if len(gt_masks) == 0 and  len(pred_masks) > 0:
             return 0.0
+
+        if len(pred_masks) == 0 and  len(gt_masks) > 0:
+            return 0.0
+
         if self.reduce_size > 1:
             split_idx = pred_masks.shape[0]
             pred_masks = F.interpolate(

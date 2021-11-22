@@ -39,10 +39,11 @@ class ToCategoryGrid:
         indices = torch.unique(indices, dim=0)
         labels = labels[indices]
         mask_index = self.to_index(centers)
-        index = labels * self.grid_size ** 2 + mask_index
-        flattend = cagetory_grid.view(-1)
-        flattend[index.long()] = 1
-        cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
+        if(len(mask_index) > 0):
+            flattend = cagetory_grid.view(-1)
+            index = labels * self.grid_size ** 2 + mask_index
+            flattend[index.long()] = 1
+            cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
         return cagetory_grid, mask_index, indices
 
 
@@ -69,6 +70,9 @@ class CentersToGridIndex:
         self,
         centers: Tensor,
     ) -> Tensor:
+        device = centers.device
+        if(len(centers) == 0):
+            return torch.zeros((0,2)).long().to(device)
         return centers[:, 1].long() * self.grid_size + centers[:, 0].long()
 
 
@@ -139,7 +143,8 @@ class Criterion:
         ):
             filtered_masks = pred_masks[mask_index]
             gt_masks = gt_masks[filter_index]
-            mask_loss += self.mask_loss(filtered_masks, gt_masks)
+            if(len(gt_masks) > 0):
+                mask_loss += self.mask_loss(filtered_masks, gt_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 
@@ -354,7 +359,7 @@ class InferenceStep:
         self.model.eval()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
-            gt_category_grids, mask_index = self.bath_adaptor(
+            gt_category_grids, mask_index, _ = self.bath_adaptor(
                 mask_batch=gt_mask_batch, label_batch=gt_label_batch
             )
             pred_category_grids, pred_all_masks = self.model(images)
@@ -362,65 +367,3 @@ class InferenceStep:
                 pred_category_grids, pred_all_masks
             )
             return pred_mask_batch, pred_label_batch
-
-
-# def matrix_nms(
-#     seg_masks: Tensor,
-#     cate_labels: Tensor,
-#     cate_scores: Tensor,
-#     kernel: str = "gaussian",
-#     sigma: float = 2.0,
-#     sum_masks: Optional[Tensor] = None,
-# ) -> list[Tensor]:
-#     """Matrix NMS for multi-class masks.
-#     Args:
-#         seg_masks (Tensor): shape (n, h, w)
-#         cate_labels (Tensor): shape (n), mask labels in descending order
-#         cate_scores (Tensor): shape (n), mask scores in descending order
-#         kernel (str):  'linear' or 'gauss'
-#         sigma (float): std in gaussian method
-#         sum_masks (Tensor): The sum of seg_masks
-#     Returns:
-#         Tensor: cate_scores_update, tensors of shape (n)
-#     """
-#     n_samples = len(cate_labels)
-#     if n_samples == 0:
-#         return []
-#     if sum_masks is None:
-#         sum_masks = seg_masks.sum((1, 2)).float()
-#     seg_masks = seg_masks.reshape(n_samples, -1).float()
-#     # inter.
-#     inter_matrix = torch.mm(seg_masks, seg_masks.transpose(1, 0))
-#     # union.
-#     sum_masks_x = sum_masks.expand(n_samples, n_samples)
-#     # iou.
-#     iou_matrix = (
-#         inter_matrix / (sum_masks_x + sum_masks_x.transpose(1, 0) - inter_matrix)
-#     ).triu(diagonal=1)
-#     # label_specific matrix.
-#     cate_labels_x = cate_labels.expand(n_samples, n_samples)
-#     label_matrix = (
-#         (cate_labels_x == cate_labels_x.transpose(1, 0)).float().triu(diagonal=1)
-#     )
-
-#     # IoU compensation
-#     compensate_iou, _ = (iou_matrix * label_matrix).max(0)
-#     compensate_iou = compensate_iou.expand(n_samples, n_samples).transpose(1, 0)
-
-#     # IoU decay
-#     decay_iou = iou_matrix * label_matrix
-
-#     # matrix nms
-#     if kernel == "gaussian":
-#         decay_matrix = torch.exp(-1 * sigma * (decay_iou ** 2))
-#         compensate_matrix = torch.exp(-1 * sigma * (compensate_iou ** 2))
-#         decay_coefficient, _ = (decay_matrix / compensate_matrix).min(0)
-#     elif kernel == "linear":
-#         decay_matrix = (1 - decay_iou) / (1 - compensate_iou)
-#         decay_coefficient, _ = decay_matrix.min(0)
-#     else:
-#         raise NotImplementedError
-
-#     # update the score.
-#     cate_scores_update = cate_scores * decay_coefficient
-#     return cate_scores_update

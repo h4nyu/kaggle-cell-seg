@@ -1,4 +1,4 @@
-name: solo-baseline-unet-large
+name: solo-baseline-patch
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -20,7 +20,7 @@ data:
     - cort
 
 num_classes: 1
-original_size: 384
+original_size: 128
 fold:
   index: 0
   n_splits: 6
@@ -30,9 +30,9 @@ backbone:
   name: "efficientnet-b0"
 
 model:
-  grid_size: 48
+  grid_size: 16
   category_feat_range: [3, 6]
-  mask_feat_range: [0, 2]
+  mask_feat_range: [0, 4]
   hidden_channels: 64
 
 

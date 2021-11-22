@@ -91,14 +91,13 @@ def draw_save(
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
-    if masks is not None:
-        plot = draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
+    if masks is not None and len(masks) > 0:
         empty_filter = masks.sum(dim=[1, 2]) > 0
         masks = masks[empty_filter]
         masks = masks.to("cpu")
-        if len(masks) > 0:
-            boxes = masks_to_boxes(masks)
-            plot = draw_bounding_boxes(plot, boxes)
+        plot = draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
+        boxes = masks_to_boxes(masks)
+        plot = draw_bounding_boxes(plot, boxes)
         plot = plot / 255
     else:
         plot = image
