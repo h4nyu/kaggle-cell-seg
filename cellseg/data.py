@@ -73,28 +73,10 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                # A.Rotate([15, 15], p=1),
-                # A.OneOf(
-                #     [
-                #         A.Affine(mode=2),
-                #         A.GridDistortion(p=0.3),
-                #     ]
-                # ),
-                A.OneOf(
-                    [
-                        # A.Resize(
-                        #     width=original_size,
-                        #     height=original_size,
-                        #     interpolation=cv2.INTER_LINEAR,
-                        #     p=0.2,
-                        # ),
-                        A.RandomCrop(
-                            width=original_size,
-                            height=original_size,
-                            p=1.0
-                        ),
-                    ],
-                    p=1.0,
+                A.RandomCrop(
+                    width=original_size,
+                    height=original_size,
+                    p=1.0
                 ),
                 ToTensorV2(),
             ]

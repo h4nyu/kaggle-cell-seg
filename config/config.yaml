@@ -45,7 +45,7 @@ mask_ap:
 
 to_masks:
   category_threshold: 0.35
-  mask_threshold: 0.88
+  mask_threshold: 0.5
   kernel_size: 3
 
 dataset:
@@ -59,11 +59,11 @@ optimizer:
   lr: 1e-3
 
 train_loader:
-  batch_size: 2 
+  batch_size: 5 
   shuffle: true
-  num_workers: 5
+  num_workers: 4
 
 validation_loader:
-  batch_size: 2
+  batch_size: 5
   shuffle: false
-  num_workers: 5
+  num_workers: 4

@@ -145,6 +145,7 @@ class Criterion:
             gt_masks = gt_masks[filter_index]
             if(len(gt_masks) > 0):
                 mask_loss += self.mask_loss(filtered_masks, gt_masks)
+        mask_loss = mask_loss / len(all_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 

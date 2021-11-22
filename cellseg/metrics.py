@@ -100,6 +100,9 @@ class MaskAP:
         if len(pred_masks) == 0 and  len(gt_masks) > 0:
             return 0.0
 
+        if len(pred_masks) == 0 and  len(gt_masks) == 0:
+            return 1.0
+
         if self.reduce_size > 1:
             split_idx = pred_masks.shape[0]
             pred_masks = F.interpolate(
