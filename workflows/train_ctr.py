@@ -87,6 +87,9 @@ def main(cfg: DictConfig) -> None:
             train_reduer.accumulate(train_log)
             logger.info(f"train batch {train_log} ")
         logger.info(f"train {train_reduer.value} ")
+        if score > train_reduer.value["loss"]:
+            score = checkpoint.save(model, train_reduer.value["loss"])
+            logger.info(f"save checkpoint")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
 

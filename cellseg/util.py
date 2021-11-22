@@ -82,12 +82,13 @@ class MeanReduceDict:
         return {k: v / max(1, self.num_samples) for k, v in self.running.items()}
 
 
+@torch.no_grad()
 def draw_save(
     path: str,
     image: Tensor,
     masks: Optional[Tensor] = None,
 ) -> None:
-    image = image.to("cpu")
+    image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
     if masks is not None:
@@ -95,7 +96,7 @@ def draw_save(
         empty_filter = masks.sum(dim=[1, 2]) > 0
         masks = masks[empty_filter]
         masks = masks.to("cpu")
-        if(len(masks) > 0):
+        if len(masks) > 0:
             boxes = masks_to_boxes(masks)
             plot = draw_bounding_boxes(plot, boxes)
         plot = plot / 255

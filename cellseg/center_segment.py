@@ -219,7 +219,7 @@ class CenterSegment(nn.Module):
         category_grids = self.category_head(category_feats)
         box_batch = self.grids_to_boxes(category_grids)
         roi_feature = self.center_crop(box_batch, images)
-        all_masks = self.segmentaition_head([roi_feature])[:,0,:,:]  # feature list?
+        all_masks = self.segmentaition_head([roi_feature])[:, 0, :, :]  # feature list?
         return category_grids, all_masks, box_batch
 
 
@@ -227,6 +227,7 @@ class Criterion:
     def __init__(
         self,
         box_size: int,
+        iou_threshold: float = 0.7,
         mask_weight: float = 1.0,
         category_weight: float = 1.0,
     ) -> None:
@@ -235,7 +236,7 @@ class Criterion:
         self.category_weight = category_weight
         self.mask_weight = mask_weight
         self.crop_masks = CropMasks(box_size)
-        self.assign = IoUAssign(topk=1)
+        self.assign = IoUAssign(iou_threshold)
 
     def __call__(
         self,
@@ -249,8 +250,19 @@ class Criterion:
 
         batch_size = pred_category_grids.size(0)
         device = pred_category_grids.device
+
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
         mask_loss = torch.tensor(0.0).to(device)
+
+        draw_save(
+            f"/store/category_pred.png",
+            pred_category_grids[0],
+        )
+        draw_save(
+            f"/store/category_gt.png",
+            gt_category_grids[0],
+        )
+
 
         batch_start = 0
         for i, (gt_masks, pred_boxes, gt_boxes) in enumerate(
@@ -260,16 +272,20 @@ class Criterion:
                 gt_box_batch,
             )
         ):
-            matched = self.assign(pred_boxes, gt_boxes)[:, 0]
-            # print(matched)
-            # gt_matched_masks = self.crop_masks(gt_masks, pred_boxes[matched])
-            # pred_matched_masks = pred_all_masks[
-            #     batch_start : batch_start + len(pred_boxes)
-            # ][matched]
-            # batch_start += len(pred_boxes)
-            # for i, m in enumerate(gt_matched_masks):
-            #     draw_save(f"/store/test-{i}.png", torch.zeros(3, *m.shape).short(), m.view(1, *m.shape))
-            # mask_loss += self.mask_loss(pred_matched_masks, gt_matched_masks)
+            matched = self.assign(gt_boxes, pred_boxes)
+            if len(matched) > 0:
+                gt_matched_masks = self.crop_masks(
+                    gt_masks[matched[:, 0]], pred_boxes[matched[:, 1]]
+                )
+                pred_matched_masks = pred_all_masks[
+                    batch_start : batch_start + len(pred_boxes)
+                ][matched[:, 1]]
+                empty_filter = gt_matched_masks.sum(dim=[1, 2]) > 0
+                gt_matched_masks = gt_matched_masks[empty_filter]
+                pred_matched_masks = pred_matched_masks[empty_filter]
+                print(pred_matched_masks.shape, gt_matched_masks.shape)
+                mask_loss += self.mask_loss(pred_matched_masks, gt_matched_masks)
+            batch_start += len(pred_boxes)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 
@@ -311,9 +327,9 @@ class TrainStep:
                     gt_box_batch,
                 ),
             )
-            # self.scaler.scale(loss).backward()
-            # self.scaler.step(self.optimizer)
-            # self.scaler.update()
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),

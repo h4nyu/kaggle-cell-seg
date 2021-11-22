@@ -17,7 +17,7 @@ class ClosestAssign:
     def __call__(self, anchor: Tensor, gt: Tensor) -> Tensor:
         device = anchor.device
         gt_count = gt.shape[0]
-        anchor_count = anchor.shape[0] 
+        anchor_count = anchor.shape[0]
         if gt_count == 0:
             return torch.zeros((0, gt_count), device=device)
         anchor_ctr = (
@@ -33,6 +33,7 @@ class ClosestAssign:
         matrix = ((anchor_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
         _, matched_idx = torch.topk(matrix, self.topk, dim=0, largest=False)
         return matched_idx.t()
+
 
 class ATSS:
     """
@@ -72,6 +73,7 @@ class ATSS:
             pos_ids[i, ids[ious > th]] = True
         return torch.nonzero(pos_ids, as_tuple=False)
 
+
 class IoUAssign:
     """
     Adaptive Training Sample Selection
@@ -89,9 +91,11 @@ class IoUAssign:
         targets: Tensor,
     ) -> Tensor:
         device = inputs.device
+        if len(inputs) == 0 or len(targets) == 0:
+            return torch.zeros(0, 2).to(device)
         iou_matrix = box_iou(inputs, targets)
         matched_value, matched_ids = torch.topk(iou_matrix, 1)
-        pos_filter = (matched_value > self.threshold)[:,0]
+        pos_filter = (matched_value > self.threshold)[:, 0]
         input_index = torch.range(start=0, end=len(inputs) - 1).long().to(device)
-        pair = torch.stack([input_index, matched_ids[:,0]]).t()[pos_filter]
+        pair = torch.stack([input_index, matched_ids[:, 0]]).t()[pos_filter]
         return pair

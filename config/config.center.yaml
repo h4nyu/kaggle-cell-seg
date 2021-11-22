@@ -50,15 +50,15 @@ dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
 criterion:
-  category_weight: 0.7
-  mask_weight: 1.3
+  category_weight: 1.0
+  mask_weight: 0.5
   box_size: *box_size
 
 optimizer:
   lr: 1e-4
 
 train_loader:
-  batch_size: 6 
+  batch_size: 4 
   shuffle: true
   num_workers: 5
 
