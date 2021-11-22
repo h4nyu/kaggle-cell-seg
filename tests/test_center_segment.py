@@ -11,7 +11,7 @@ import torch
 import torch.optim as optim
 
 
-def test_center_segment() -> None:
+def test_model() -> None:
     image_batch = torch.rand(2, 3, 512, 512)
     backbone = EfficientNetFPN("efficientnet-b0")
     num_classes = 1

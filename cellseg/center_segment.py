@@ -8,9 +8,9 @@ from .loss import FocalLoss
 import torch.nn.functional as F
 from typing import Callable, Any
 from torchvision.ops import roi_pool, box_convert, roi_align, masks_to_boxes
-from torchvision.ops.boxes import box_iou
 from torch.cuda.amp import GradScaler, autocast
-from .assign import ClosestAssign
+from .util import draw_save
+from .assign import IoUAssign
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
@@ -203,7 +203,7 @@ class CenterSegment(nn.Module):
         )
         self.segmentaition_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=num_classes,
+            num_classes=1,
             channels=[3],
             reductions=[1],
             use_cord=False,
@@ -219,7 +219,7 @@ class CenterSegment(nn.Module):
         category_grids = self.category_head(category_feats)
         box_batch = self.grids_to_boxes(category_grids)
         roi_feature = self.center_crop(box_batch, images)
-        all_masks = self.segmentaition_head([roi_feature])  # feature list?
+        all_masks = self.segmentaition_head([roi_feature])[:,0,:,:]  # feature list?
         return category_grids, all_masks, box_batch
 
 
@@ -235,7 +235,7 @@ class Criterion:
         self.category_weight = category_weight
         self.mask_weight = mask_weight
         self.crop_masks = CropMasks(box_size)
-        self.assign = ClosestAssign(topk=1)
+        self.assign = IoUAssign(topk=1)
 
     def __call__(
         self,
@@ -261,12 +261,15 @@ class Criterion:
             )
         ):
             matched = self.assign(pred_boxes, gt_boxes)[:, 0]
-            gt_matched_masks = self.crop_masks(gt_masks, pred_boxes[matched])
-            pred_matched_masks = pred_all_masks[
-                batch_start : batch_start + len(pred_boxes)
-            ][matched]
-            batch_start += len(pred_boxes)
-            mask_loss += self.mask_loss(pred_matched_masks, gt_matched_masks)
+            # print(matched)
+            # gt_matched_masks = self.crop_masks(gt_masks, pred_boxes[matched])
+            # pred_matched_masks = pred_all_masks[
+            #     batch_start : batch_start + len(pred_boxes)
+            # ][matched]
+            # batch_start += len(pred_boxes)
+            # for i, m in enumerate(gt_matched_masks):
+            #     draw_save(f"/store/test-{i}.png", torch.zeros(3, *m.shape).short(), m.view(1, *m.shape))
+            # mask_loss += self.mask_loss(pred_matched_masks, gt_matched_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 
@@ -308,9 +311,9 @@ class TrainStep:
                     gt_box_batch,
                 ),
             )
-            self.scaler.scale(loss).backward()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+            # self.scaler.scale(loss).backward()
+            # self.scaler.step(self.optimizer)
+            # self.scaler.update()
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),

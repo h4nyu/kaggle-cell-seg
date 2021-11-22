@@ -20,8 +20,8 @@ data:
     - cort
 
 num_classes: &num_classes 1
-original_size: 256
-box_size: &box_size 32
+original_size: 512
+box_size: &box_size 64
 fold:
   index: 0
   n_splits: 6
