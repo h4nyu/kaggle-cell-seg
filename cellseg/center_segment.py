@@ -32,7 +32,7 @@ class Anchor:
         self,
         masks: Tensor,
         labels: Tensor,
-    ) -> tuple[Tensor, Tensor]:  # category_grid, boxes, labels
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:  # category_grid, boxes, labels
         device = masks.device
         cagetory_grid = torch.zeros(
             self.num_classes, self.grid_size, self.grid_size, dtype=torch.float
@@ -78,7 +78,7 @@ class BatchAdaptor:
         mask_batch: list[Tensor],
         label_batch: list[Tensor],
     ) -> tuple[
-        Tensor, list[Tensor], list[Tensor]
+        Tensor, list[Tensor], list[Tensor], list[Tensor]
     ]:  # category_grids, list of mask_index, list of labels
         filtered_label_batch: list[Tensor] = []
         filtered_box_batch: list[Tensor] = []
@@ -150,51 +150,36 @@ class GridsToBoxes:
 class CenterCrop:
     def __init__(
         self,
-        output_size: int,
+        box_size: int,
     ) -> None:
-        self.output_size = output_size
+        self.box_size = box_size
 
     def __call__(self, box_batch: list[Tensor], feature: Tensor) -> Tensor:
         device = feature.device
         _, _, h, w = feature.shape
-        for b in box_batch:
-            print(b.shape)
-        all_patches = roi_pool(feature, box_batch, output_size=self.output_size)
-        print(all_patches.shape)
+        all_patches = roi_pool(feature, box_batch, output_size=self.box_size)
         return all_patches
 
 
 class CropMasks:
     def __init__(
         self,
-        output_size: int,
+        box_size: int,
     ) -> None:
-        self.output_size = output_size
-        self.pad = nn.ZeroPad2d(self.output_size // 2)
+        self.box_size = box_size
+        self.pad = nn.ZeroPad2d(self.box_size // 2)
 
     def __call__(self, masks: Tensor, boxes: Tensor) -> Tensor:
         print(masks.shape, boxes.shape)
         device = masks.device
         masks = self.pad(masks)
-        boxes = boxes + self.output_size // 2
+        boxes = boxes + self.box_size // 2
         out_masks = torch.zeros(
-            (len(masks), self.output_size, self.output_size), dtype=torch.bool
+            (len(masks), self.box_size, self.box_size), dtype=torch.bool
         ).to(device)
         for i, b in enumerate(boxes.long()):
             out_masks[i] = masks[i, b[1] : b[3], b[0] : b[2]]
         return out_masks
-
-
-class TrainCenterCrop:
-    def __init__(
-        self,
-        out_size: int,
-    ) -> None:
-        ...
-        self.out_size = out_size
-
-    def __call__(self, center_batch: list[Tensor], images: Tensor) -> Tensor:
-        ...
 
 
 class CenterSegment(nn.Module):
@@ -203,9 +188,8 @@ class CenterSegment(nn.Module):
         backbone: FPNLike,
         hidden_channels: int,
         num_classes: int,
-        output_size: int,
+        box_size: int,
         category_feat_range: tuple[int, int],
-        center_crop: Callable[[list[Tensor], Tensor], Tensor],
     ) -> None:
         super().__init__()
         self.backbone = backbone
@@ -227,8 +211,8 @@ class CenterSegment(nn.Module):
             reductions=[1],
             use_cord=False,
         )
-        self.center_crop = center_crop
-        self.grids_to_boxes = GridsToBoxes(box_size=output_size)
+        self.center_crop = CenterCrop(box_size=box_size)
+        self.grids_to_boxes = GridsToBoxes(box_size=box_size)
 
     def forward(self, images: Tensor) -> tuple[Tensor, Tensor, list[Tensor]]:
         features = self.backbone(images)
@@ -261,10 +245,9 @@ class Criterion:
         self,
         inputs: tuple[Tensor, Tensor, list[Tensor]],
         targets: tuple[
-            Tensor, list[Tensor], list[Tensor], list[Tensor]
+            Tensor, list[Tensor], list[Tensor]
         ],  # gt_cate_grids, mask_batch, mask_index_batch, filter_index_batch
-        # ) -> tuple[Tensor, Tensor, Tensor]:
-    ) -> None:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         pred_category_grids, pred_all_masks, pred_box_batch = inputs
         gt_category_grids, gt_mask_batch, gt_box_batch = targets
 
@@ -308,7 +291,7 @@ class TrainStep:
         self.use_amp = use_amp
         self.scaler = GradScaler()
 
-    def __call__(self, batch: Batch) -> None:
+    def __call__(self, batch: Batch) -> dict[str, float]:
         self.model.train()
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):

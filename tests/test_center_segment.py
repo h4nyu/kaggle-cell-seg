@@ -16,6 +16,7 @@ def test_center_segment() -> None:
     image_batch = torch.rand(2, 3, 512, 512)
     backbone = EfficientNetFPN("efficientnet-b0")
     num_classes = 1
+    box_size = 32
     category_feat_range = (3, 6)
 
     model = CenterSegment(
@@ -23,7 +24,7 @@ def test_center_segment() -> None:
         backbone=backbone,
         category_feat_range=category_feat_range,
         hidden_channels=64,
-        center_crop=CenterCrop(output_size=box_size),
+        box_size=box_size,
     )
     model(image_batch)
 
@@ -48,12 +49,11 @@ def test_train_step() -> None:
     batch = to_device(image_batch, gt_mask_batch, gt_label_batch)
 
     model = CenterSegment(
-        output_size=box_size,
         num_classes=num_classes,
         backbone=backbone,
         category_feat_range=category_feat_range,
         hidden_channels=64,
-        center_crop=CenterCrop(output_size=box_size),
+        box_size=box_size,
     ).to(device)
     optimizer = optim.Adam(model.parameters())
     batch_adaptor = BatchAdaptor(

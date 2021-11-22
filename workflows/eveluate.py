@@ -18,9 +18,8 @@ from cellseg.solo import (
 )
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
-from cellseg.util import seed_everything, Checkpoint, MeanReduceDict
+from cellseg.util import seed_everything, Checkpoint, MeanReduceDict, ToDevice
 from cellseg.data import (
-    ToDevice,
     get_fold_indices,
     CellTrainDataset,
     collate_fn,
