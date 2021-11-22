@@ -7,19 +7,43 @@ from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import masks_to_boxes, box_convert
+from .util import grid
 from .backbones import FPNLike
 
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
 
-@torch.no_grad()
-def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, Tensor]:
-    grid_y, grid_x = torch.meshgrid(  # type:ignore
-        torch.arange(h, dtype=dtype),
-        torch.arange(w, dtype=dtype),
-    )
-    return (grid_y, grid_x)
+class ToCategoryGrid:
+    def __init__(
+        self,
+        num_classes: int,
+        grid_size: int,
+    ) -> None:
+        self.num_classes = num_classes
+        self.grid_size = grid_size
+        self.to_index = CentersToGridIndex(self.grid_size)
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        centers: Tensor,
+        labels: Tensor,
+    ) -> tuple[Tensor, Tensor, Tensor]:  # category_grid, mask_index, indices
+        device = centers.device
+        dtype = centers.dtype
+        cagetory_grid = torch.zeros(
+            self.num_classes, self.grid_size, self.grid_size, dtype=dtype
+        ).to(device)
+        centers, indices = torch.unique(centers, dim=0, return_inverse=True)
+        indices = torch.unique(indices, dim=0)
+        labels = labels[indices]
+        mask_index = self.to_index(centers)
+        index = labels * self.grid_size ** 2 + mask_index
+        flattend = cagetory_grid.view(-1)
+        flattend[index.long()] = 1
+        cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
+        return cagetory_grid, mask_index, indices
 
 
 class MasksToCenters:
@@ -48,37 +72,6 @@ class CentersToGridIndex:
         return centers[:, 1].long() * self.grid_size + centers[:, 0].long()
 
 
-class ToCategoryGrid:
-    def __init__(
-        self,
-        num_classes: int,
-        grid_size: int,) -> None:
-        self.num_classes = num_classes
-        self.grid_size = grid_size
-        self.to_index = CentersToGridIndex(self.grid_size)
-
-    @torch.no_grad()
-    def __call__(
-        self,
-        centers: Tensor,
-        labels: Tensor,
-    ) -> tuple[Tensor, Tensor, Tensor]:  # category_grid, mask_index, indices
-        device = centers.device
-        dtype = centers.dtype
-        cagetory_grid = torch.zeros(
-            self.num_classes, self.grid_size, self.grid_size, dtype=dtype
-        ).to(device)
-        centers, indices = torch.unique(centers,  dim=0, return_inverse=True)
-        indices = torch.unique(indices, dim=0)
-        labels = labels[indices]
-        mask_index = self.to_index(centers)
-        index = labels * self.grid_size ** 2 + mask_index
-        flattend = cagetory_grid.view(-1)
-        flattend[index.long()] = 1
-        cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
-        return cagetory_grid, mask_index, indices
-
-
 class BatchAdaptor:
     def __init__(
         self,
@@ -99,7 +92,9 @@ class BatchAdaptor:
         self,
         mask_batch: list[Tensor],
         label_batch: list[Tensor],
-    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:  # category_grids, list of mask_index, list of labels
+    ) -> tuple[
+        Tensor, list[Tensor], list[Tensor]
+    ]:  # category_grids, list of mask_index, list of labels
         mask_index_batch: list[Tensor] = []
         filter_index_batch: list[Tensor] = []
         cate_grids: list[Tensor] = []
@@ -323,7 +318,7 @@ class ValidationStep:
                     gt_category_grids,
                     gt_mask_batch,
                     mask_index_batch,
-                    filter_index_batch
+                    filter_index_batch,
                 ),
             )
             if on_end is not None:

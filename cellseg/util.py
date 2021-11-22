@@ -1,8 +1,9 @@
 import numpy as np
 import torch
+from torch import Tensor
 import random
 import torch.nn as nn
-from typing import Optional, TypeVar, Generic, Any
+from typing import Optional, TypeVar, Generic, Any, Union
 from omegaconf import OmegaConf
 from pathlib import Path
 
@@ -12,6 +13,29 @@ def seed_everything(seed: int) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+class ToDevice:
+    def __init__(
+        self,
+        device: str,
+    ) -> None:
+        self.device = device
+
+    def __call__(self, *args: Union[Tensor, list[Tensor]]) -> Any:
+        return tuple(
+            [i.to(self.device) for i in x] if isinstance(x, list) else x.to(self.device)
+            for x in args
+        )
+
+
+@torch.no_grad()
+def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, Tensor]:
+    grid_y, grid_x = torch.meshgrid(  # type:ignore
+        torch.arange(h, dtype=dtype),
+        torch.arange(w, dtype=dtype),
+    )
+    return (grid_y, grid_x)
 
 
 T = TypeVar("T", bound=nn.Module)

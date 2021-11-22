@@ -159,7 +159,12 @@ def test_loss() -> None:
     loss = Criterion()
     loss_value, category_loss, mask_loss = loss(
         inputs=(pred_category_grids, all_masks),
-        targets=(gt_category_grids, gt_mask_batch, mask_index_batch, filter_index_batch),
+        targets=(
+            gt_category_grids,
+            gt_mask_batch,
+            mask_index_batch,
+            filter_index_batch,
+        ),
     )
     assert category_loss + mask_loss == loss_value
     assert loss_value < 0.01

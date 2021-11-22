@@ -70,20 +70,6 @@ def draw_save(
     save_image(plot, path)
 
 
-class ToDevice:
-    def __init__(
-        self,
-        device: str,
-    ) -> None:
-        self.device = device
-
-    def __call__(self, *args: Union[Tensor, list[Tensor]]) -> Any:
-        return tuple(
-            [i.to(self.device) for i in x] if isinstance(x, list) else x.to(self.device)
-            for x in args
-        )
-
-
 TrainItem = TypedDict(
     "TrainItem",
     {

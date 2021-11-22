@@ -3,21 +3,128 @@ import torch.nn as nn
 from torch import Tensor
 from .backbones import FPNLike
 from .heads import Head
-from typing import Callable
-from torchvision.ops import roi_pool, box_convert, roi_align
+from .solo import MasksToCenters, CentersToGridIndex
+from .loss import FocalLoss
+import torch.nn.functional as F
+from typing import Callable, Any
+from torchvision.ops import roi_pool, box_convert, roi_align, masks_to_boxes
+from torchvision.ops.boxes import box_iou
+from torch.cuda.amp import GradScaler, autocast
+from .assign import ClosestAssign
+
+Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
 
-class GridsToCenters:
-    def __init__(self, kernel_size: int = 3, threshold: float = 0.1) -> None:
+class Anchor:
+    def __init__(
+        self,
+        num_classes: int,
+        grid_size: int,
+        box_size: int,
+    ) -> None:
+        self.num_classes = num_classes
+        self.grid_size = grid_size
+        self.to_index = CentersToGridIndex(self.grid_size)
+        self.box_size = box_size
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        masks: Tensor,
+        labels: Tensor,
+    ) -> tuple[Tensor, Tensor]:  # category_grid, boxes, labels
+        device = masks.device
+        cagetory_grid = torch.zeros(
+            self.num_classes, self.grid_size, self.grid_size, dtype=torch.float
+        ).to(device)
+        boxes = masks_to_boxes(masks)
+        centers = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")[:, :2].long()
+        centers, indices = torch.unique(centers, dim=0, return_inverse=True)
+        box_wh = torch.ones(centers.shape).to(device) * self.box_size
+        indices = torch.unique(indices, dim=0)
+        labels = labels[indices]
+        boxes = box_convert(
+            torch.cat([centers, box_wh], dim=1), in_fmt="cxcywh", out_fmt="xyxy"
+        )
+        masks = masks[indices]
+        mask_index = self.to_index(centers)
+        index = labels * self.grid_size ** 2 + mask_index
+        flattend = cagetory_grid.view(-1)
+        flattend[index.long()] = 1
+        cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
+        return cagetory_grid, masks, boxes, labels
+
+
+class BatchAdaptor:
+    def __init__(
+        self,
+        num_classes: int,
+        grid_size: int,
+        original_size: int,
+        box_size: int,
+    ) -> None:
+        self.grid_size = grid_size
+        self.anchor = Anchor(
+            grid_size=grid_size,
+            num_classes=num_classes,
+            box_size=box_size,
+        )
+        self.scale = grid_size / original_size
+        self.masks_to_centers = MasksToCenters()
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        mask_batch: list[Tensor],
+        label_batch: list[Tensor],
+    ) -> tuple[
+        Tensor, list[Tensor], list[Tensor]
+    ]:  # category_grids, list of mask_index, list of labels
+        filtered_label_batch: list[Tensor] = []
+        filtered_box_batch: list[Tensor] = []
+        filtered_mask_batch: list[Tensor] = []
+        cate_grids: list[Tensor] = []
+        for masks, labels in zip(mask_batch, label_batch):
+            (
+                category_grid,
+                filtered_masks,
+                filtered_boxes,
+                filtered_labels,
+            ) = self.anchor(
+                masks=masks,
+                labels=labels,
+            )
+            filtered_label_batch.append(filtered_labels)
+            filtered_box_batch.append(filtered_boxes)
+            filtered_mask_batch.append(filtered_masks)
+            cate_grids.append(category_grid)
+        category_grids = torch.stack(cate_grids)
+        return (
+            category_grids,
+            filtered_mask_batch,
+            filtered_box_batch,
+            filtered_label_batch,
+        )
+
+
+class GridsToBoxes:
+    def __init__(
+        self,
+        box_size: int,
+        kernel_size: int = 5,
+        threshold: float = 0.95,
+    ) -> None:
         self.threshold = threshold
         self.max_pool = nn.MaxPool2d(
             kernel_size=kernel_size,
             padding=kernel_size // 2,
             stride=1,
         )
+        self.box_size = box_size
 
     def __call__(self, category_grids: Tensor) -> list[Tensor]:
         batch_size = category_grids.shape[0]
+        device = category_grids.device
         category_grids = category_grids * (
             (self.max_pool(category_grids) == category_grids)
             & (category_grids > self.threshold)
@@ -29,14 +136,15 @@ class GridsToCenters:
             cx,
         ) = category_grids.nonzero().unbind(-1)
         all_centers = torch.stack([cx, cy], dim=1)
-        center_batch: list[Tensor] = []
+        all_box_wh = torch.ones(all_centers.size()).to(device) * self.box_size
+        all_boxes = box_convert(
+            torch.cat([all_centers, all_box_wh], dim=1), in_fmt="cxcywh", out_fmt="xyxy"
+        )
+        box_batch: list[Tensor] = []
         for batch_idx in range(batch_size):
-            centers = all_centers[batch_indecies == batch_idx]
-            center_batch.append(centers)
-        return center_batch
-
-        #     masks = all_masks[batch_idx][mask_indecies[filterd]]
-        #     empty_filter = masks.sum(dim=[1, 2]) > 0
+            boxes = all_boxes[batch_indecies == batch_idx]
+            box_batch.append(boxes)
+        return box_batch
 
 
 class CenterCrop:
@@ -46,17 +154,35 @@ class CenterCrop:
     ) -> None:
         self.output_size = output_size
 
-    def __call__(self, center_batch: list[Tensor], images: Tensor) -> Tensor:
-        device = images.device
-        _, _, h, w = images.shape
-        box_batch = []
-        for centers in center_batch:
-            box_wh = torch.ones(centers.size()).to(device) * self.output_size
-            boxes = box_convert(
-                torch.cat([centers, box_wh], dim=1), in_fmt="cxcywh", out_fmt="xyxy"
-            )
-            box_batch.append(boxes)
-        return roi_pool(images, box_batch, output_size=self.output_size)
+    def __call__(self, box_batch: list[Tensor], feature: Tensor) -> Tensor:
+        device = feature.device
+        _, _, h, w = feature.shape
+        for b in box_batch:
+            print(b.shape)
+        all_patches = roi_pool(feature, box_batch, output_size=self.output_size)
+        print(all_patches.shape)
+        return all_patches
+
+
+class CropMasks:
+    def __init__(
+        self,
+        output_size: int,
+    ) -> None:
+        self.output_size = output_size
+        self.pad = nn.ZeroPad2d(self.output_size // 2)
+
+    def __call__(self, masks: Tensor, boxes: Tensor) -> Tensor:
+        print(masks.shape, boxes.shape)
+        device = masks.device
+        masks = self.pad(masks)
+        boxes = boxes + self.output_size // 2
+        out_masks = torch.zeros(
+            (len(masks), self.output_size, self.output_size), dtype=torch.bool
+        ).to(device)
+        for i, b in enumerate(boxes.long()):
+            out_masks[i] = masks[i, b[1] : b[3], b[0] : b[2]]
+        return out_masks
 
 
 class TrainCenterCrop:
@@ -68,8 +194,7 @@ class TrainCenterCrop:
         self.out_size = out_size
 
     def __call__(self, center_batch: list[Tensor], images: Tensor) -> Tensor:
-
-        return []
+        ...
 
 
 class CenterSegment(nn.Module):
@@ -78,6 +203,7 @@ class CenterSegment(nn.Module):
         backbone: FPNLike,
         hidden_channels: int,
         num_classes: int,
+        output_size: int,
         category_feat_range: tuple[int, int],
         center_crop: Callable[[list[Tensor], Tensor], Tensor],
     ) -> None:
@@ -102,8 +228,7 @@ class CenterSegment(nn.Module):
             use_cord=False,
         )
         self.center_crop = center_crop
-        self.grids_to_centers = GridsToCenters()
-        self.a = nn.Conv2d(3, 3, kernel_size=3)
+        self.grids_to_boxes = GridsToBoxes(box_size=output_size)
 
     def forward(self, images: Tensor) -> tuple[Tensor, Tensor, list[Tensor]]:
         features = self.backbone(images)
@@ -111,7 +236,104 @@ class CenterSegment(nn.Module):
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
         category_grids = self.category_head(category_feats)
-        center_batch = self.grids_to_centers(category_grids)
-        croped_images = self.center_crop(center_batch, images)
-        masks = self.segmentaition_head([croped_images])  # feature list?
-        return category_grids, masks, center_batch
+        box_batch = self.grids_to_boxes(category_grids)
+        roi_feature = self.center_crop(box_batch, images)
+        all_masks = self.segmentaition_head([roi_feature])  # feature list?
+        return category_grids, all_masks, box_batch
+
+
+class Criterion:
+    def __init__(
+        self,
+        output_size: int,
+        topk: int,
+        mask_weight: float = 1.0,
+        category_weight: float = 1.0,
+    ) -> None:
+        self.category_loss = FocalLoss()
+        self.mask_loss = FocalLoss()
+        self.category_weight = category_weight
+        self.mask_weight = mask_weight
+        self.crop_masks = CropMasks(output_size)
+        self.assign = ClosestAssign(topk=1)
+
+    def __call__(
+        self,
+        inputs: tuple[Tensor, Tensor, list[Tensor]],
+        targets: tuple[
+            Tensor, list[Tensor], list[Tensor], list[Tensor]
+        ],  # gt_cate_grids, mask_batch, mask_index_batch, filter_index_batch
+        # ) -> tuple[Tensor, Tensor, Tensor]:
+    ) -> None:
+        pred_category_grids, pred_all_masks, pred_box_batch = inputs
+        gt_category_grids, gt_mask_batch, gt_box_batch = targets
+
+        batch_size = pred_category_grids.size(0)
+        device = pred_category_grids.device
+        category_loss = self.category_loss(pred_category_grids, gt_category_grids)
+        mask_loss = torch.tensor(0.0).to(device)
+
+        batch_start = 0
+        for i, (gt_masks, pred_boxes, gt_boxes) in enumerate(
+            zip(
+                gt_mask_batch,
+                pred_box_batch,
+                gt_box_batch,
+            )
+        ):
+            matched = self.assign(pred_boxes, gt_boxes)[:, 0]
+            gt_matched_masks = self.crop_masks(gt_masks, pred_boxes[matched])
+            pred_matched_masks = pred_all_masks[
+                batch_start : batch_start + len(pred_boxes)
+            ][matched]
+            batch_start += len(pred_boxes)
+            mask_loss += self.mask_loss(pred_matched_masks, gt_matched_masks)
+        loss = self.category_weight * category_loss + self.mask_weight * mask_loss
+        return loss, category_loss, mask_loss
+
+
+class TrainStep:
+    def __init__(
+        self,
+        criterion: Criterion,
+        model: CenterSegment,
+        optimizer: Any,
+        batch_adaptor: BatchAdaptor,
+        use_amp: bool = True,
+    ) -> None:
+        self.criterion = criterion
+        self.model = model
+        self.bath_adaptor = batch_adaptor
+        self.optimizer = optimizer
+        self.use_amp = use_amp
+        self.scaler = GradScaler()
+
+    def __call__(self, batch: Batch) -> None:
+        self.model.train()
+        self.optimizer.zero_grad()
+        with autocast(enabled=self.use_amp):
+            images, gt_mask_batch, gt_label_batch = batch
+            gt_category_grids, gt_mask_batch, gt_box_batch, _ = self.bath_adaptor(
+                mask_batch=gt_mask_batch, label_batch=gt_label_batch
+            )
+            pred_category_grids, pred_all_masks, pred_box_batch = self.model(images)
+            loss, category_loss, mask_loss = self.criterion(
+                (
+                    pred_category_grids,
+                    pred_all_masks,
+                    pred_box_batch,
+                ),
+                (
+                    gt_category_grids,
+                    gt_mask_batch,
+                    gt_box_batch,
+                ),
+            )
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        return dict(
+            loss=loss.item(),
+            category_loss=category_loss.item(),
+            mask_loss=mask_loss.item(),
+        )
