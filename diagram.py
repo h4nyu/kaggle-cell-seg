@@ -9,6 +9,7 @@ Head = lambda x: Custom(x, "./img/head.png")
 InsntanceMasks = lambda x: Custom(x, "./img/instance-masks.png")
 CategoryGrid = lambda x: Custom(x, "./img/cagetory-grid.png")
 FPN = lambda x: Custom(x, "./img/fpn.png")
+RoI = lambda x: Custom(x, "./img/rpn.png")
 
 Scalar = lambda x: Custom(x, "./img/scalar.png")
 
@@ -74,7 +75,11 @@ with Diagram("solo-model", show=False):
 
 with Diagram("center-segment-train", show=False):
     gt_masks = Tensor3D("gt_masks")
-    croped_images = Tensor3D("croped_images")
+    features = Tensor3D("features")
+    roi = RoI("roi")
+
+    fpn = FPN("fpn")
+
     gt_centerness = Tensor1D("gt_centerness")
     gt_labels = Tensor1D("gt_labels")
 
@@ -95,10 +100,10 @@ with Diagram("center-segment-train", show=False):
     gt_labels >> gt_category_grid
     gt_masks >> gt_centerness >> gt_category_grid
     [gt_centerness, gt_masks] >> gt_croped_masks
-    [gt_centerness, gt_masks, image] >> croped_images
 
-    croped_images >> segmentaition_head >> pred_croped_masks
-    image >> location_head >> pred_category_grid
+    roi >> segmentaition_head >> pred_croped_masks
+    features >> location_head >> pred_category_grid >> roi
+    image >> fpn >> features
 
     [pred_croped_masks, gt_croped_masks] >> mask_loss
     [pred_category_grid, gt_category_grid] >> category_loss
