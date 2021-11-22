@@ -310,7 +310,7 @@ class ValidationStep:
         self.model.eval()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
-            gt_category_grids, mask_index, _ = self.bath_adaptor(
+            gt_category_grids, mask_index_batch, filter_index_batch = self.bath_adaptor(
                 mask_batch=gt_mask_batch, label_batch=gt_label_batch
             )
             pred_category_grids, pred_all_masks = self.model(images)
@@ -322,7 +322,8 @@ class ValidationStep:
                 (
                     gt_category_grids,
                     gt_mask_batch,
-                    mask_index,
+                    mask_index_batch,
+                    filter_index_batch
                 ),
             )
             if on_end is not None:
