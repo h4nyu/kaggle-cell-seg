@@ -13,7 +13,7 @@ from cellseg.solo import (
     Criterion,
     ToMasks,
 )
-from cellseg.data import draw_save
+from cellseg.util import draw_save
 
 
 def test_center_to_grid_index() -> None:

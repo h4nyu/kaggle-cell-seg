@@ -63,13 +63,11 @@ class BatchAdaptor:
         original_size: int,
         box_size: int,
     ) -> None:
-        self.grid_size = grid_size
         self.anchor = Anchor(
             grid_size=grid_size,
             num_classes=num_classes,
             box_size=box_size,
         )
-        self.scale = grid_size / original_size
         self.masks_to_centers = MasksToCenters()
 
     @torch.no_grad()
@@ -170,7 +168,6 @@ class CropMasks:
         self.pad = nn.ZeroPad2d(self.box_size // 2)
 
     def __call__(self, masks: Tensor, boxes: Tensor) -> Tensor:
-        print(masks.shape, boxes.shape)
         device = masks.device
         masks = self.pad(masks)
         boxes = boxes + self.box_size // 2
@@ -229,8 +226,7 @@ class CenterSegment(nn.Module):
 class Criterion:
     def __init__(
         self,
-        output_size: int,
-        topk: int,
+        box_size: int,
         mask_weight: float = 1.0,
         category_weight: float = 1.0,
     ) -> None:
@@ -238,7 +234,7 @@ class Criterion:
         self.mask_loss = FocalLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
-        self.crop_masks = CropMasks(output_size)
+        self.crop_masks = CropMasks(box_size)
         self.assign = ClosestAssign(topk=1)
 
     def __call__(

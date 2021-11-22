@@ -8,12 +8,10 @@ from logging import getLogger, FileHandler
 
 # import torch_optimizer as optim
 import torch.optim as optim
-from cellseg.solo import (
-    Solo,
+from cellseg.center_segment import (
+    CenterSegment,
     TrainStep,
     Criterion,
-    ValidationStep,
-    ToMasks,
     BatchAdaptor,
 )
 from cellseg.metrics import MaskAP
@@ -30,39 +28,32 @@ from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
 
-@hydra.main(config_path="/app/config", config_name="config")
+@hydra.main(config_path="/app/config", config_name="config.center")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
     Path(os.path.join(cfg.data.root_path, f"{cfg.name}")).mkdir(exist_ok=True)
     logger.addHandler(FileHandler(os.path.join(cfg.root_path, cfg.name, "train.log")))
     backbone = EfficientNetFPN(**cfg.backbone)
-    checkpoint = Checkpoint[Solo](
+    checkpoint = Checkpoint[CenterSegment](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
         default_score=float("inf"),
     )
-    model = Solo(**cfg.model, backbone=backbone)
+    model = CenterSegment(**cfg.model, backbone=backbone)
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
     criterion = Criterion(**cfg.criterion)
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
-        grid_size=cfg.model.grid_size,
+        grid_size=cfg.original_size,
         original_size=cfg.original_size,
+        box_size=cfg.box_size,
     )
     train_step = TrainStep(
         optimizer=optim.Adam(model.parameters(), **cfg.optimizer),
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
-        use_amp=cfg.use_amp,
-    )
-    to_masks = ToMasks(**cfg.to_masks)
-    validation_step = ValidationStep(
-        model=model,
-        criterion=criterion,
-        batch_adaptor=batch_adaptor,
-        to_masks=to_masks,
         use_amp=cfg.use_amp,
     )
     train_dataset = CellTrainDataset(
@@ -98,14 +89,6 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"train {train_reduer.value} ")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
-        for batch in val_loader:
-            batch = to_device(*batch)
-            validation_log = validation_step(batch)
-            val_reduer.accumulate(validation_log)
-        if score > val_reduer.value["loss"]:
-            score = checkpoint.save(model, val_reduer.value["loss"])
-            logger.info(f"save checkpoint")
-        logger.info(f"eval {score=} {val_reduer.value} {mask_ap.value=}")
 
 
 if __name__ == "__main__":

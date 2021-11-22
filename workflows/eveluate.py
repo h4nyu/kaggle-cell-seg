@@ -18,14 +18,19 @@ from cellseg.solo import (
 )
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
-from cellseg.util import seed_everything, Checkpoint, MeanReduceDict, ToDevice
+from cellseg.util import (
+    seed_everything,
+    Checkpoint,
+    MeanReduceDict,
+    ToDevice,
+    draw_save,
+)
 from cellseg.data import (
     get_fold_indices,
     CellTrainDataset,
     collate_fn,
     TrainTranform,
     Tranform,
-    draw_save,
 )
 from torch.utils.data import Subset, DataLoader
 from pathlib import Path

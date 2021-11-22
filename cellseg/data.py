@@ -2,10 +2,8 @@ from typing import Optional
 import numpy as np
 import torch
 from torch import Tensor
-from torchvision.utils import draw_segmentation_masks, draw_bounding_boxes
 
 import torchvision.transforms.functional as F
-from torchvision.utils import draw_segmentation_masks, save_image
 import pandas as pd
 from typing import TypedDict, Optional, cast, Callable, Any, Union
 from albumentations.pytorch.transforms import ToTensorV2
@@ -15,7 +13,6 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import StratifiedKFold
 import albumentations as A
-from torchvision.ops import masks_to_boxes
 
 
 def seed(num: int) -> None:
@@ -49,25 +46,6 @@ def get_masks(
     )
     masks = torch.stack(rows.tolist())
     return masks
-
-
-def draw_save(
-    path: str,
-    image: Tensor,
-    masks: Optional[Tensor] = None,
-) -> None:
-    image = image.to("cpu")
-    if image.shape[0] == 1:
-        image = image.expand(3, -1, -1)
-    if masks is not None:
-        masks = masks.to("cpu")
-        plot = draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
-        boxes = masks_to_boxes(masks)
-        plot = draw_bounding_boxes(plot, boxes)
-        plot = plot / 255
-    else:
-        plot = image
-    save_image(plot, path)
 
 
 TrainItem = TypedDict(

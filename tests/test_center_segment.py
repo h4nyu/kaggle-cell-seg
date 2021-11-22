@@ -1,7 +1,6 @@
 import pytest
 from cellseg.center_segment import (
     CenterSegment,
-    CenterCrop,
     TrainStep,
     Criterion,
     BatchAdaptor,
@@ -36,7 +35,6 @@ def test_train_step() -> None:
     original_size = 384
     category_feat_range = (0, 3)
     box_size = 32
-    topk = 10
     device = "cuda"
 
     image_batch = torch.rand(1, 3, original_size, original_size)
@@ -64,8 +62,7 @@ def test_train_step() -> None:
     )
 
     criterion = Criterion(
-        output_size=box_size,
-        topk=topk,
+        box_size=box_size,
     )
     train_step = TrainStep(
         model=model,

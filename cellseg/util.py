@@ -1,3 +1,5 @@
+from torchvision.utils import draw_segmentation_masks, save_image, draw_bounding_boxes
+from torchvision.ops import masks_to_boxes
 import numpy as np
 import torch
 from torch import Tensor
@@ -78,3 +80,22 @@ class MeanReduceDict:
     @property
     def value(self) -> dict[str, float]:
         return {k: v / max(1, self.num_samples) for k, v in self.running.items()}
+
+
+def draw_save(
+    path: str,
+    image: Tensor,
+    masks: Optional[Tensor] = None,
+) -> None:
+    image = image.to("cpu")
+    if image.shape[0] == 1:
+        image = image.expand(3, -1, -1)
+    if masks is not None:
+        masks = masks.to("cpu")
+        plot = draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
+        boxes = masks_to_boxes(masks)
+        plot = draw_bounding_boxes(plot, boxes)
+        plot = plot / 255
+    else:
+        plot = image
+    save_image(plot, path)
