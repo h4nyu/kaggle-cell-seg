@@ -265,6 +265,7 @@ class ToMasks:
         category_threshold: float = 0.5,
         mask_threshold: float = 0.5,
         kernel_size: int = 3,
+        use_nms: bool = False,
     ) -> None:
         self.category_threshold = category_threshold
         self.mask_threshold = mask_threshold
@@ -273,6 +274,8 @@ class ToMasks:
             padding=kernel_size // 2,
             stride=1,
         )
+        self.use_nms = use_nms
+        self.nms = MatrixNms()
 
     @torch.no_grad()
     def __call__(
@@ -282,13 +285,16 @@ class ToMasks:
     ]:  # mask_batch, label_batch, mask_indecies
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
-        category_grids = category_grids * (category_grids > self.category_threshold)
+        category_grids = category_grids * (
+                (self.max_pool(category_grids) == category_grids)
+                & (category_grids > self.category_threshold)
+                )
 
         to_index = CentersToGridIndex(grid_size=grid_size)
         all_masks = all_masks > self.mask_threshold
         (
             batch_indecies,
-            labels,
+            all_labels,
             cy,
             cx,
         ) = category_grids.nonzero(as_tuple=True)
@@ -302,17 +308,25 @@ class ToMasks:
                 mask_batch.append(
                     torch.zeros((0, *all_masks.shape[2:]), dtype=all_masks.dtype)
                 )
-                label_batch.append(torch.zeros((0,), dtype=labels.dtype))
-                score_batch.append(torch.zeros((0,), dtype=labels.float))
+                label_batch.append(torch.zeros((0,), dtype=torch.long))
+                score_batch.append(torch.zeros((0,), dtype=torch.float))
                 continue
             masks = all_masks[batch_idx][mask_indecies[filterd]]
             empty_filter = masks.sum(dim=[1, 2]) > 0
+            masks = masks[empty_filter]
+            labels = all_labels[filterd][empty_filter]
             scores = category_grids[
-                batch_idx, labels[filterd], cy[filterd], cy[filterd]
+                batch_idx, labels, cy[filterd][empty_filter], cy[filterd][empty_filter]
             ]
-            label_batch.append(labels[filterd][empty_filter])
-            mask_batch.append(masks[empty_filter])
-            score_batch.append(scores[empty_filter])
+            if self.use_nms:
+                scores = self.nms(masks, labels, scores)
+                score_filter = scores > self.category_threshold
+                labels = labels[score_filter]
+                masks = masks[score_filter]
+                scores = scores[score_filter]
+            label_batch.append(labels)
+            mask_batch.append(masks)
+            score_batch.append(scores)
         return mask_batch, label_batch, score_batch
 
 
@@ -418,7 +432,7 @@ class ValidationStep:
                 ),
             )
             if on_end is not None:
-                pred_mask_batch, pred_label_batch = self.to_masks(
+                pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
                     pred_category_grids, pred_all_masks
                 )
                 on_end(pred_mask_batch, gt_mask_batch)
@@ -454,7 +468,7 @@ class InferenceStep:
                 mask_batch=gt_mask_batch, label_batch=gt_label_batch
             )
             pred_category_grids, pred_all_masks = self.model(images)
-            pred_mask_batch, pred_label_batch = self.to_masks(
+            pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
                 pred_category_grids, pred_all_masks
             )
             return pred_mask_batch, pred_label_batch

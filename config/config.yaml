@@ -44,8 +44,8 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.64
-  mask_threshold: 0.83
+  category_threshold: 0.45
+  mask_threshold: 0.8
   kernel_size: 3
 
 dataset:
