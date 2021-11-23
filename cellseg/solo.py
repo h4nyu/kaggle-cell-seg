@@ -121,7 +121,7 @@ class Criterion:
         category_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
-        self.mask_loss = DiceLoss()
+        self.mask_loss = FocalLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
 
@@ -137,18 +137,16 @@ class Criterion:
         device = pred_category_grids.device
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
         mask_loss = torch.tensor(0.0).to(device)
+        count = 0
         for gt_masks, mask_index, pred_masks in zip(
             gt_mask_batch, mask_index_batch, all_masks
         ):
             if len(mask_index) > 0:
-                # for i in range(gt_masks.shape[0]):
-                #     print(mask_index[i])
-                #     draw_save(f"/store/{i}pred.png", torch.ones((3, *gt_masks.shape[1:])).short(), filtered_masks[i:i+1] > 0.4)
-                #     draw_save(f"/store/{i}gt.png", torch.ones((3, *gt_masks.shape[1:])).short(), gt_masks[i:i+1])
                 mask_loss += self.mask_loss(
                     pred_masks[mask_index[:, 0]], gt_masks[mask_index[:, 1]]
                 )
-        mask_loss = mask_loss / len(all_masks)
+                count += 1
+        mask_loss = mask_loss / count
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 
@@ -195,6 +193,70 @@ class Solo(nn.Module):
         mask_feats = features[self.mask_feat_range[0] : self.mask_feat_range[1]]
         masks = self.mask_head(mask_feats)
         return (category_grid, masks)
+
+
+class MatrixNms:
+    def __init__(self, kernel: str = "gaussian", sigma: float = 2.0) -> None:
+        self.kernel = kernel
+        self.sigma = sigma
+
+    def __call__(
+        self,
+        seg_masks: Tensor,
+        cate_labels: Tensor,
+        cate_scores: Tensor,
+        sum_masks: Optional[Tensor] = None,
+    ) -> Tensor:
+        """Matrix NMS for multi-class masks.
+        Args:
+            seg_masks (Tensor): shape (n, h, w)
+            cate_labels (Tensor): shape (n), mask labels in descending order
+            cate_scores (Tensor): shape (n), mask scores in descending order
+            kernel (str):  'linear' or 'gauss'
+            sigma (float): std in gaussian method
+            sum_masks (Tensor): The sum of seg_masks
+        Returns:
+            Tensor: cate_scores_update, tensors of shape (n)
+        """
+        n_samples = len(seg_masks)
+        if n_samples == 0:
+            return seg_masks
+        if sum_masks is None:
+            sum_masks = seg_masks.sum((1, 2)).float()
+        seg_masks = seg_masks.reshape(n_samples, -1).float()
+        # inter.
+        inter_matrix = torch.mm(seg_masks, seg_masks.transpose(1, 0))
+        # union.
+        sum_masks_x = sum_masks.expand(n_samples, n_samples)
+        # iou.
+        iou_matrix = (
+            inter_matrix / (sum_masks_x + sum_masks_x.transpose(1, 0) - inter_matrix)
+        ).triu(diagonal=1)
+        # label_specific matrix.
+        cate_labels_x = cate_labels.expand(n_samples, n_samples)
+        label_matrix = (
+            (cate_labels_x == cate_labels_x.transpose(1, 0)).float().triu(diagonal=1)
+        )
+
+        # IoU compensation
+        compensate_iou, _ = (iou_matrix * label_matrix).max(0)
+        compensate_iou = compensate_iou.expand(n_samples, n_samples).transpose(1, 0)
+
+        # IoU decay
+        decay_iou = iou_matrix * label_matrix
+
+        # matrix nms
+        if self.kernel == "gaussian":
+            decay_matrix = torch.exp(-1 * self.sigma * (decay_iou ** 2))
+            compensate_matrix = torch.exp(-1 * self.sigma * (compensate_iou ** 2))
+            decay_coefficient, _ = (decay_matrix / compensate_matrix).min(0)
+        else:
+            decay_matrix = (1 - decay_iou) / (1 - compensate_iou)
+            decay_coefficient, _ = decay_matrix.min(0)
+
+        # update the score.
+        cate_scores_update = cate_scores * decay_coefficient
+        return cate_scores_update
 
 
 class ToMasks:

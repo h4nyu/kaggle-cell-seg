@@ -73,6 +73,7 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
+                A.RandomScale(scale_limit=(0.95, 1.05)),
                 A.RandomCrop(width=original_size, height=original_size, p=1.0),
                 ToTensorV2(),
             ]

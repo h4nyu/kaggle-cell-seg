@@ -12,6 +12,7 @@ from cellseg.solo import (
     Solo,
     Criterion,
     ToMasks,
+    MatrixNms,
 )
 from cellseg.util import draw_save
 
@@ -163,3 +164,16 @@ def test_loss() -> None:
     )
     assert category_loss + mask_loss == loss_value
     assert loss_value < 0.01
+
+
+def test_nms() -> None:
+    nms = MatrixNms()
+    image_size = 8
+    masks = torch.zeros(2, image_size, image_size)
+    masks[0, 2:4, 2:4] = 1.0
+    masks[1, 2:5, 2:5] = 1.0
+
+    cate_labels = torch.zeros(len(masks), dtype=torch.long)
+    cate_scores = torch.tensor([0.9, 0.4], dtype=torch.float)
+    res = nms(masks, cate_labels, cate_scores)
+    assert res.shape == cate_scores.shape
