@@ -73,11 +73,7 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                A.RandomCrop(
-                    width=original_size,
-                    height=original_size,
-                    p=1.0
-                ),
+                A.RandomCrop(width=original_size, height=original_size, p=1.0),
                 ToTensorV2(),
             ]
         )
@@ -91,11 +87,7 @@ class Tranform:
 
         self.transform = A.Compose(
             [
-                A.RandomCrop(
-                    width=original_size,
-                    height=original_size,
-                    p=1.0
-                ),
+                A.RandomCrop(width=original_size, height=original_size, p=1.0),
                 ToTensorV2(),
             ]
         )

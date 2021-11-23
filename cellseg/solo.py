@@ -39,11 +39,13 @@ class ToCategoryGrid:
         indices = torch.unique(indices, dim=0)
         labels = labels[indices]
         mask_index = self.to_index(centers)
-        if(len(mask_index) > 0):
+        if len(mask_index) > 0:
             flattend = cagetory_grid.view(-1)
             index = labels * self.grid_size ** 2 + mask_index
             flattend[index.long()] = 1
-            cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
+            cagetory_grid = flattend.view(
+                self.num_classes, self.grid_size, self.grid_size
+            )
         return cagetory_grid, mask_index, indices
 
 
@@ -71,8 +73,8 @@ class CentersToGridIndex:
         centers: Tensor,
     ) -> Tensor:
         device = centers.device
-        if(len(centers) == 0):
-            return torch.zeros((0,2)).long().to(device)
+        if len(centers) == 0:
+            return torch.zeros((0, 2)).long().to(device)
         return centers[:, 1].long() * self.grid_size + centers[:, 0].long()
 
 
@@ -143,7 +145,7 @@ class Criterion:
         ):
             filtered_masks = pred_masks[mask_index]
             gt_masks = gt_masks[filter_index]
-            if(len(gt_masks) > 0):
+            if len(gt_masks) > 0:
                 mask_loss += self.mask_loss(filtered_masks, gt_masks)
         mask_loss = mask_loss / len(all_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
@@ -233,6 +235,12 @@ class ToMasks:
         label_batch: list[Tensor] = []
         for batch_idx in range(batch_size):
             filterd = batch_indecies == batch_idx
+            if len(filterd) == 0:
+                mask_batch.append(
+                    torch.zeros((0, *all_masks.shape[2:]), dtype=all_masks.dtype)
+                )
+                label_batch.append(torch.zeros((0,), dtype=labels.dtype))
+                continue
             masks = all_masks[batch_idx][mask_indecies[filterd]]
             empty_filter = masks.sum(dim=[1, 2]) > 0
             label_batch.append(labels[filterd][empty_filter])

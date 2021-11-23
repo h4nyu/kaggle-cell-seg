@@ -263,7 +263,6 @@ class Criterion:
             gt_category_grids[0],
         )
 
-
         batch_start = 0
         for i, (gt_masks, pred_boxes, gt_boxes) in enumerate(
             zip(

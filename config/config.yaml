@@ -1,4 +1,4 @@
-name: solo-baseline-patch
+name: solo-baseline-patch-mid
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -32,8 +32,8 @@ backbone:
 model:
   grid_size: 16
   category_feat_range: [3, 6]
-  mask_feat_range: [0, 4]
-  hidden_channels: 64
+  mask_feat_range: [0, 6]
+  hidden_channels: 128
 
 
 mask_ap:
@@ -53,17 +53,17 @@ dataset:
   train_csv: /store/train.csv
 criterion:
   category_weight: 1.0
-  mask_weight: 1.0
+  mask_weight: 2.0
 
 optimizer:
-  lr: 1e-3
+  lr: 1e-4
 
 train_loader:
-  batch_size: 5 
+  batch_size: 8 
   shuffle: true
   num_workers: 4
 
 validation_loader:
-  batch_size: 5
+  batch_size: 8
   shuffle: false
   num_workers: 4
