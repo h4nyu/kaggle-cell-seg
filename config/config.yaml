@@ -44,8 +44,8 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.35
-  mask_threshold: 0.5
+  category_threshold: 0.65
+  mask_threshold: 0.80
   kernel_size: 3
 
 dataset:
@@ -53,17 +53,17 @@ dataset:
   train_csv: /store/train.csv
 criterion:
   category_weight: 1.0
-  mask_weight: 2.0
+  mask_weight: 10.0
 
 optimizer:
-  lr: 1e-4
+  lr: 5e-4
 
 train_loader:
   batch_size: 8 
   shuffle: true
-  num_workers: 4
+  num_workers: 3
 
 validation_loader:
   batch_size: 8
   shuffle: false
-  num_workers: 4
+  num_workers: 3

@@ -50,14 +50,15 @@ def main(cfg: DictConfig) -> None:
         grid_size=cfg.model.grid_size,
         original_size=cfg.original_size,
     )
+    to_masks = ToMasks(**cfg.to_masks)
     train_step = TrainStep(
         optimizer=optim.Adam(model.parameters(), **cfg.optimizer),
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
         use_amp=cfg.use_amp,
+        to_masks=to_masks,
     )
-    to_masks = ToMasks(**cfg.to_masks)
     validation_step = ValidationStep(
         model=model,
         criterion=criterion,
