@@ -1,4 +1,4 @@
-name: solo-baseline-patch-mid
+name: solo-baseline-patch-mid0
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -20,7 +20,7 @@ data:
     - cort
 
 num_classes: 1
-original_size: 128
+original_size: 192
 fold:
   index: 0
   n_splits: 6
@@ -30,7 +30,7 @@ backbone:
   name: "efficientnet-b0"
 
 model:
-  grid_size: 16
+  grid_size: 24
   category_feat_range: [3, 6]
   mask_feat_range: [0, 6]
   hidden_channels: 128
@@ -56,7 +56,7 @@ criterion:
   mask_weight: 5.0
 
 optimizer:
-  lr: 4e-4
+  lr: 1e-4
 
 train_loader:
   batch_size: 10 

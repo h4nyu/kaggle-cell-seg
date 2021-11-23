@@ -372,18 +372,18 @@ class TrainStep:
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
-        if self.to_masks is not None:
-            pred_mask_batch, _ = self.to_masks(pred_category_grids, pred_all_masks)
-            draw_save(
-                "/store/gt.png",
-                images[0],
-                gt_mask_batch[0],
-            )
-            draw_save(
-                "/store/pred.png",
-                images[0],
-                pred_mask_batch[0],
-            )
+        # if self.to_masks is not None:
+        #     pred_mask_batch, _, _ = self.to_masks(pred_category_grids, pred_all_masks)
+        #     draw_save(
+        #         "/store/gt.png",
+        #         images[0],
+        #         gt_mask_batch[0],
+        #     )
+        #     draw_save(
+        #         "/store/pred.png",
+        #         images[0],
+        #         pred_mask_batch[0],
+        #     )
 
         return dict(
             loss=loss.item(),
