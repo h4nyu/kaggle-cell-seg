@@ -35,7 +35,7 @@ class ToCategoryGrid:
         cagetory_grid = torch.zeros(
             self.num_classes, self.grid_size, self.grid_size, dtype=dtype
         ).to(device)
-        if(len(centers) == 0):
+        if len(centers) == 0:
             matched = torch.zeros(0, 2).long().to(device)
             return cagetory_grid, matched
         center_index = torch.arange(len(centers)).to(device)
@@ -43,9 +43,7 @@ class ToCategoryGrid:
         flattend = cagetory_grid.view(-1)
         index = labels * self.grid_size ** 2 + mask_index
         flattend[index.long()] = 1
-        cagetory_grid = flattend.view(
-            self.num_classes, self.grid_size, self.grid_size
-        )
+        cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
         matched = torch.stack([mask_index, center_index], dim=1)
         return cagetory_grid, matched
 
@@ -123,7 +121,7 @@ class Criterion:
         category_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
-        self.mask_loss = FocalLoss()
+        self.mask_loss = DiceLoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
 
@@ -142,12 +140,14 @@ class Criterion:
         for gt_masks, mask_index, pred_masks in zip(
             gt_mask_batch, mask_index_batch, all_masks
         ):
-            if(len(mask_index) > 0):
+            if len(mask_index) > 0:
                 # for i in range(gt_masks.shape[0]):
                 #     print(mask_index[i])
                 #     draw_save(f"/store/{i}pred.png", torch.ones((3, *gt_masks.shape[1:])).short(), filtered_masks[i:i+1] > 0.4)
                 #     draw_save(f"/store/{i}gt.png", torch.ones((3, *gt_masks.shape[1:])).short(), gt_masks[i:i+1])
-                mask_loss += self.mask_loss(pred_masks[mask_index[:, 0]], gt_masks[mask_index[:, 1]])
+                mask_loss += self.mask_loss(
+                    pred_masks[mask_index[:, 0]], gt_masks[mask_index[:, 1]]
+                )
         mask_loss = mask_loss / len(all_masks)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
@@ -291,10 +291,8 @@ class TrainStep:
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
-        if(self.to_masks is not None):
-            pred_mask_batch, _ = self.to_masks(
-                pred_category_grids, pred_all_masks
-            )
+        if self.to_masks is not None:
+            pred_mask_batch, _ = self.to_masks(pred_category_grids, pred_all_masks)
             draw_save(
                 "/store/gt.png",
                 images[0],

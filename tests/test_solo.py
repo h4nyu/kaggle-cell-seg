@@ -58,7 +58,7 @@ def test_category_adaptor() -> None:
     assert category_grid.sum() == len(matched)
     assert category_grid[0, 2, 1] == 1
     assert category_grid[0, 2, 4] == 1
-    assert matched.tolist() == [[17, 0], [2*grid_size+4, 1]]
+    assert matched.tolist() == [[17, 0], [2 * grid_size + 4, 1]]
 
 
 def test_batch_adaptor() -> None:
@@ -150,7 +150,7 @@ def test_loss() -> None:
     # data adaptor outputs
     gt_category_grids = torch.zeros(batch_size, num_classes, grid_size, grid_size)
     gt_mask_batch = [torch.zeros(3, original_size, original_size)]
-    mask_index_batch = [torch.tensor([[0, 0], [1, 1],[2, 2]])]
+    mask_index_batch = [torch.tensor([[0, 0], [1, 1], [2, 2]])]
 
     loss = Criterion()
     loss_value, category_loss, mask_loss = loss(
