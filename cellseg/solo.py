@@ -277,13 +277,10 @@ class ToMasks:
     @torch.no_grad()
     def __call__(
         self, category_grids: Tensor, all_masks: Tensor
-    ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch, mask_indecies
+    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:  # mask_batch, label_batch, mask_indecies
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
-        category_grids = category_grids * (
-            (self.max_pool(category_grids) == category_grids)
-            & (category_grids > self.category_threshold)
-        )
+        category_grids = category_grids * (category_grids > self.category_threshold)
 
         to_index = CentersToGridIndex(grid_size=grid_size)
         all_masks = all_masks > self.mask_threshold
@@ -292,10 +289,11 @@ class ToMasks:
             labels,
             cy,
             cx,
-        ) = category_grids.nonzero().unbind(-1)
+        ) = category_grids.nonzero(as_tuple=True)
         mask_indecies = to_index(torch.stack([cx, cy], dim=1))
         mask_batch: list[Tensor] = []
         label_batch: list[Tensor] = []
+        score_batch: list[Tensor] = []
         for batch_idx in range(batch_size):
             filterd = batch_indecies == batch_idx
             if len(filterd) == 0:
@@ -303,12 +301,15 @@ class ToMasks:
                     torch.zeros((0, *all_masks.shape[2:]), dtype=all_masks.dtype)
                 )
                 label_batch.append(torch.zeros((0,), dtype=labels.dtype))
+                score_batch.append(torch.zeros((0,), dtype=labels.float))
                 continue
             masks = all_masks[batch_idx][mask_indecies[filterd]]
             empty_filter = masks.sum(dim=[1, 2]) > 0
+            scores = category_grids[batch_idx, labels[filterd], cy[filterd], cy[filterd]]
             label_batch.append(labels[filterd][empty_filter])
             mask_batch.append(masks[empty_filter])
-        return mask_batch, label_batch
+            score_batch.append(scores[empty_filter])
+        return mask_batch, label_batch, score_batch
 
 
 class TrainStep:
