@@ -277,7 +277,9 @@ class ToMasks:
     @torch.no_grad()
     def __call__(
         self, category_grids: Tensor, all_masks: Tensor
-    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:  # mask_batch, label_batch, mask_indecies
+    ) -> tuple[
+        list[Tensor], list[Tensor], list[Tensor]
+    ]:  # mask_batch, label_batch, mask_indecies
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
         category_grids = category_grids * (category_grids > self.category_threshold)
@@ -305,7 +307,9 @@ class ToMasks:
                 continue
             masks = all_masks[batch_idx][mask_indecies[filterd]]
             empty_filter = masks.sum(dim=[1, 2]) > 0
-            scores = category_grids[batch_idx, labels[filterd], cy[filterd], cy[filterd]]
+            scores = category_grids[
+                batch_idx, labels[filterd], cy[filterd], cy[filterd]
+            ]
             label_batch.append(labels[filterd][empty_filter])
             mask_batch.append(masks[empty_filter])
             score_batch.append(scores[empty_filter])

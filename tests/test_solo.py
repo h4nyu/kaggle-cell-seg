@@ -110,7 +110,11 @@ def test_to_masks() -> None:
 
     mask_batch, label_batch, score_batch = to_masks(grids, all_masks)
     assert (
-        len(mask_batch) == len(gt_mask_batch) == len(label_batch) == len(gt_label_batch) == len(score_batch)
+        len(mask_batch)
+        == len(gt_mask_batch)
+        == len(label_batch)
+        == len(gt_label_batch)
+        == len(score_batch)
     )
     assert score_batch[0][0] == 0.9
     for masks, gt_masks in zip(mask_batch, gt_mask_batch):
