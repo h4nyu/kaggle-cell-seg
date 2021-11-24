@@ -66,7 +66,7 @@ def main(cfg: DictConfig) -> None:
         transform=Tranform(cfg.patch_size)
     )
     loader = DataLoader(
-        Subset(dataset, indices=list(range(1))),
+        Subset(dataset, indices=list(range(2))),
         collate_fn=collate_fn,
         batch_size=1,
         # **cfg.validation_loader,

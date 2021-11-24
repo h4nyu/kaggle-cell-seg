@@ -21,7 +21,6 @@ data:
     - cort
 
 num_classes: 1
-original_size: 128
 patch_size: 128
 fold:
   index: 0
@@ -45,8 +44,8 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.6
-  mask_threshold: 0.85
+  category_threshold: 0.5
+  mask_threshold: 0.90
   kernel_size: 3
   use_nms: false
 
@@ -58,7 +57,7 @@ criterion:
   mask_weight: 5.0
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-3
 
 train_loader:
   batch_size: 16

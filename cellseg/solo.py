@@ -286,8 +286,7 @@ class ToMasks:
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
         category_grids = category_grids * (
-            (self.max_pool(category_grids) == category_grids)
-            & (category_grids > self.category_threshold)
+            (self.max_pool(category_grids) == category_grids) & (category_grids > self.category_threshold)
         )
 
         to_index = CentersToGridIndex(grid_size=grid_size)

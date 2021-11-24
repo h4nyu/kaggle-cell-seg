@@ -48,7 +48,7 @@ def main(cfg: DictConfig) -> None:
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
         grid_size=cfg.model.grid_size,
-        original_size=cfg.original_size,
+        original_size=cfg.patch_size,
     )
     to_masks = ToMasks(**cfg.to_masks)
     train_step = TrainStep(
@@ -69,13 +69,13 @@ def main(cfg: DictConfig) -> None:
     train_dataset = CellTrainDataset(
         **cfg.dataset,
         transform=TrainTranform(
-            original_size=cfg.original_size,
+            original_size=cfg.patch_size,
         ),
     )
     val_dataset = CellTrainDataset(
         **cfg.dataset,
         transform=Tranform(
-            original_size=cfg.original_size,
+            original_size=cfg.patch_size,
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)
