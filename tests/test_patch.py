@@ -6,6 +6,7 @@ from cellseg.data import (
     CellTrainDataset,
     Tranform,
 )
+from cellseg.util import ToPatches
 
 
 def test_patch() -> None:
@@ -21,26 +22,13 @@ def test_patch() -> None:
 
     _, h, w = image.shape
     image = image.view(1, *image.shape)
-    draw_save("test_outputs/test-patch-base.png", image[0])
     patch_size = 128
-    pad_size = (
-            (h % patch_size) // 4,
-            (w % patch_size) // 4,
-            (h % patch_size) // 4,
-            (w % patch_size) // 4,
-    )
-    pad = nn.ZeroPad2d(pad_size)
-    image = pad(image)
+    to_patches = ToPatches(patch_size=patch_size)
+    images, patch_batch = to_patches(image)
 
-    patches = image.unfold(2, patch_size, patch_size).unfold(
-        3, patch_size, patch_size
-    )
-    patches = (
-        patches.permute([0, 2, 3, 1, 4, 5])
-        .contiguous()
-        .view(-1, 3, patch_size, patch_size)
-    )
-    # assert patches.shape == (6, 3, patch_size, patch_size)
-    print(patches.shape)
-    plot = make_grid(patches, nrow=w // patch_size)
-    draw_save("test_outputs/test-patch.png", plot)
+    for i, (image, patches) in enumerate(zip(images, patch_batch)):
+        assert patches.shape == (20, 3, patch_size, patch_size)
+        print(patches.shape)
+        plot = make_grid(patches, nrow=w // patch_size)
+        draw_save(f"test_outputs/test-patch-{i}-padded.png", image)
+        draw_save(f"test_outputs/test-patch-{i}-patches.png", plot)

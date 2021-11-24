@@ -27,13 +27,13 @@ fold:
   seed: *seed
 
 backbone:
-  name: "efficientnet-b1"
+  name: "efficientnet-b3"
 
 model:
-  grid_size: 32
-  category_feat_range: [2, 6]
+  grid_size: 16
+  category_feat_range: [3, 6]
   mask_feat_range: [0, 6]
-  hidden_channels: 64
+  hidden_channels: 128
 
 mask_ap:
   reduce_size: 8
@@ -43,9 +43,10 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.45
+  category_threshold: 0.4
   mask_threshold: 0.8
   kernel_size: 3
+  use_nms: false
 
 dataset:
   img_dir: /store/train
@@ -58,11 +59,11 @@ optimizer:
   lr: 1e-3
 
 train_loader:
-  batch_size: 10 
+  batch_size: 16
   shuffle: true
-  num_workers: 3
+  num_workers: 5
 
 validation_loader:
-  batch_size: 10
+  batch_size: 16
   shuffle: false
-  num_workers: 3
+  num_workers: 5

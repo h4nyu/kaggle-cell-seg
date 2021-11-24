@@ -102,3 +102,33 @@ def draw_save(
     else:
         plot = image
     save_image(plot, path)
+
+
+class ToPatches:
+    def __init__(
+        self,
+        patch_size: int,
+    ) -> None:
+        self.patch_size = patch_size
+
+    def __call__(self, images: Tensor) -> tuple[Tensor, Tensor]:
+        b, c, h, w = images.shape
+        pad = nn.ZeroPad2d(
+            (
+                (h % self.patch_size) // 4,
+                (w % self.patch_size) // 4,
+                (h % self.patch_size) // 4,
+                (w % self.patch_size) // 4,
+            )
+        )
+        images = pad(images)
+
+        patches = images.unfold(2, self.patch_size, self.patch_size).unfold(
+            3, self.patch_size, self.patch_size
+        )
+        patches = (
+            patches.permute([0, 2, 3, 1, 4, 5])
+            .contiguous()
+            .view(b, -1, 3, self.patch_size, self.patch_size)
+        )
+        return images, patches
