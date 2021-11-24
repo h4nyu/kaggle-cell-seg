@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from typing import Callable, Any
 from torchvision.ops import roi_pool, box_convert, roi_align, masks_to_boxes
 from torch.cuda.amp import GradScaler, autocast
-from .util import draw_save
+from .utils import draw_save
 from .assign import IoUAssign
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch

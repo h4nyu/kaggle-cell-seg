@@ -7,7 +7,7 @@ from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import masks_to_boxes, box_convert
-from .util import grid, draw_save
+from .util import grid, draw_save, ToPatches
 from .backbones import FPNLike
 
 
@@ -450,6 +450,7 @@ class InferenceStep:
         batch_adaptor: BatchAdaptor,
         to_masks: ToMasks,
         use_amp: bool = True,
+        to_patches: Optional[ToPatches] = None,
     ) -> None:
         self.model = model
         self.bath_adaptor = batch_adaptor
@@ -459,16 +460,43 @@ class InferenceStep:
     @torch.no_grad()
     def __call__(
         self,
-        batch: Batch,
+        images: Tensor,
     ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch
         self.model.eval()
         with autocast(enabled=self.use_amp):
-            images, gt_mask_batch, gt_label_batch = batch
-            gt_category_grids, mask_index = self.bath_adaptor(
-                mask_batch=gt_mask_batch, label_batch=gt_label_batch
-            )
             pred_category_grids, pred_all_masks = self.model(images)
             pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
                 pred_category_grids, pred_all_masks
             )
+            return pred_mask_batch, pred_label_batch
+
+
+class PatchInferenceStep:
+    def __init__(
+        self,
+        model: Solo,
+        batch_adaptor: BatchAdaptor,
+        to_masks: ToMasks,
+        to_patches: ToPatches,
+        use_amp: bool = True,
+    ) -> None:
+        self.model = model
+        self.bath_adaptor = batch_adaptor
+        self.to_masks = to_masks
+        self.use_amp = use_amp
+        self.to_patches = to_patches
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        images: Tensor,
+    ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch
+        with autocast(enabled=self.use_amp):
+            padded_images, patch_batch, patch_grids = self.to_patches(images)
+            for patches in patch_batch:
+                pred_category_grids, pred_all_masks = self.model(patches)
+                pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
+                    pred_category_grids, pred_all_masks
+                )
+
             return pred_mask_batch, pred_label_batch

@@ -2,8 +2,13 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from cellseg.backbones import EfficientNetFPN
+from torch.utils.data import Subset, DataLoader
 import os
 import torch.nn.functional as F
+from cellseg.data import (
+    CellTrainDataset,
+    collate_fn,
+)
 from cellseg.solo import (
     ToCategoryGrid,
     MasksToCenters,
@@ -13,8 +18,9 @@ from cellseg.solo import (
     Criterion,
     ToMasks,
     MatrixNms,
+    PatchInferenceStep,
 )
-from cellseg.util import draw_save
+from cellseg.utils import draw_save, ToPatches
 
 
 def test_center_to_grid_index() -> None:
@@ -183,3 +189,52 @@ def test_nms() -> None:
     cate_scores = torch.tensor([0.9, 0.4], dtype=torch.float)
     res = nms(masks, cate_labels, cate_scores)
     assert res.shape == cate_scores.shape
+
+
+def test_inference_step() -> None:
+    backbone = EfficientNetFPN("efficientnet-b0")
+    category_feat_range = (4, 6)
+    mask_feat_range = (0, 4)
+    num_classes = 1
+    grid_size = 16
+    patch_size = 128
+
+    solo = Solo(
+        num_classes=num_classes,
+        backbone=backbone,
+        hidden_channels=64,
+        grid_size=grid_size,
+        category_feat_range=category_feat_range,
+        mask_feat_range=mask_feat_range,
+    )
+    to_masks = ToMasks()
+    batch_adaptor = BatchAdaptor(
+        num_classes=num_classes,
+        grid_size=grid_size,
+        original_size=patch_size,
+    )
+    to_patches = ToPatches(patch_size=patch_size)
+    inference_step = PatchInferenceStep(
+        model=solo,
+        batch_adaptor=batch_adaptor,
+        to_masks=to_masks,
+        to_patches=to_patches,
+    )
+    dataset = CellTrainDataset(
+        img_dir="data",
+        train_csv="data/annotation.csv",
+    )
+    sample = dataset[0]
+    assert sample is not None
+    image = sample["image"]
+    masks = sample["masks"]
+    labels = sample["labels"]
+    loader = DataLoader(
+        dataset,
+        collate_fn=collate_fn,
+        batch_size=1,
+        # **cfg.validation_loader,
+    )
+    for batch in loader:
+        inference_step(batch[0])
+    # ...

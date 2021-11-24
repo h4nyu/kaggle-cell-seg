@@ -8,7 +8,7 @@ from cellseg.data import (
     TrainTranform,
     inv_normalize,
 )
-from cellseg.util import draw_save
+from cellseg.utils import draw_save
 from hydra import compose, initialize
 import pandas as pd
 from torchvision.io import read_image

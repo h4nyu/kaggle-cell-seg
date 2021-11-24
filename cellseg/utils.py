@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 import random
 import torch.nn as nn
-from typing import Optional, TypeVar, Generic, Any, Union
+from typing import Optional, TypeVar, Generic, Any, Union, Callable
 from omegaconf import OmegaConf
 from pathlib import Path
 
@@ -108,21 +108,26 @@ class ToPatches:
     def __init__(
         self,
         patch_size: int,
+        use_reflect: bool = False,
     ) -> None:
         self.patch_size = patch_size
+        self.use_reflect = use_reflect
 
-    def __call__(self, images: Tensor) -> tuple[Tensor, Tensor]:
+    def __call__(self, images: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         b, c, h, w = images.shape
-        pad = nn.ZeroPad2d(
-            (
-                (h % self.patch_size) // 4,
-                (w % self.patch_size) // 4,
-                (h % self.patch_size) // 4,
-                (w % self.patch_size) // 4,
-            )
+        pad_size = (
+            0,
+            (w // self.patch_size + 1) * self.patch_size - w,
+            0,
+            (h // self.patch_size + 1) * self.patch_size - h,
         )
-        images = pad(images)
+        if self.use_reflect:
+            pad: Callable[[Tensor], Tensor] = nn.ReflectionPad2d(pad_size)
 
+        else:
+            pad = nn.ZeroPad2d(pad_size)
+        images = pad(images)
+        _, _, padded_h, padded_w = images.shape
         patches = images.unfold(2, self.patch_size, self.patch_size).unfold(
             3, self.patch_size, self.patch_size
         )
@@ -131,4 +136,22 @@ class ToPatches:
             .contiguous()
             .view(b, -1, 3, self.patch_size, self.patch_size)
         )
-        return images, patches
+        index = torch.stack(
+            grid(padded_h // self.patch_size, padded_w // self.patch_size)
+        )
+        patch_grid = (
+            torch.cat([index, (index + 1)]).permute([2, 1, 0]).contiguous().view(-1, 4)
+            * self.patch_size
+        )
+        return images, patches, patch_grid
+
+
+class MergePatchedMasks:
+    def __init__(
+        self,
+        patch_size: int,
+    ) -> None:
+        self.patch_size = patch_size
+
+    def __call__(self, mask_batch: list[Tensor]) -> Tensor:
+        ...

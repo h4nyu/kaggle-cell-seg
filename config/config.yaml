@@ -56,14 +56,14 @@ criterion:
   mask_weight: 10.0
 
 optimizer:
-  lr: 1e-3
+  lr: 1e-4
 
 train_loader:
   batch_size: 16
   shuffle: true
-  num_workers: 5
+  num_workers: 4
 
 validation_loader:
   batch_size: 16
   shuffle: false
-  num_workers: 5
+  num_workers: 4

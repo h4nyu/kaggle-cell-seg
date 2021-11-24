@@ -6,7 +6,7 @@ from cellseg.center_segment import (
     BatchAdaptor,
 )
 from cellseg.backbones import EfficientNetFPN
-from cellseg.util import ToDevice
+from cellseg.utils import ToDevice
 import torch
 import torch.optim as optim
 
