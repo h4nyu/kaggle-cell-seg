@@ -9,6 +9,7 @@ log_keys:
   - mask_loss
 
 
+
 root_path: &root_path /store
 data:
   root_path: *root_path
@@ -21,6 +22,7 @@ data:
 
 num_classes: 1
 original_size: 128
+patch_size: 128
 fold:
   index: 0
   n_splits: 6
@@ -43,8 +45,8 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.4
-  mask_threshold: 0.8
+  category_threshold: 0.6
+  mask_threshold: 0.85
   kernel_size: 3
   use_nms: false
 
@@ -53,7 +55,7 @@ dataset:
   train_csv: /store/train.csv
 criterion:
   category_weight: 1.0
-  mask_weight: 10.0
+  mask_weight: 5.0
 
 optimizer:
   lr: 1e-4

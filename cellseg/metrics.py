@@ -9,8 +9,8 @@ class MaskIou:
 
     def _simple(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
         iou_rows = []
-        pred_masks = pred_masks.bool().view(pred_masks.shape[0], -1)
-        gt_masks = gt_masks.bool().view(gt_masks.shape[0], -1)
+        pred_masks = pred_masks.bool().contiguous().view(pred_masks.shape[0], -1)
+        gt_masks = gt_masks.bool().contiguous().view(gt_masks.shape[0], -1)
         for pred_mask in pred_masks:
             intersection = (gt_masks & pred_mask).sum(dim=-1)
             union = (gt_masks | pred_mask).sum(dim=-1)
@@ -20,8 +20,8 @@ class MaskIou:
         return iou_matrix
 
     def _batch(self, pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> Tensor:
-        pred_masks = pred_masks.bool().view(pred_masks.shape[0], 1, -1)
-        gt_masks = gt_masks.bool().view(gt_masks.shape[0], -1)
+        pred_masks = pred_masks.bool().contiguous().view(pred_masks.shape[0], 1, -1)
+        gt_masks = gt_masks.bool().contiguous().view(gt_masks.shape[0], -1)
         intersection = (pred_masks & gt_masks).sum(dim=-1)
         union = (pred_masks | gt_masks).sum(dim=-1)
         iou_matrix = intersection / union

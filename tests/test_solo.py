@@ -218,7 +218,7 @@ def test_inference_step() -> None:
         model=solo,
         batch_adaptor=batch_adaptor,
         to_masks=to_masks,
-        to_patches=to_patches,
+        patch_size=patch_size,
     )
     dataset = CellTrainDataset(
         img_dir="data",

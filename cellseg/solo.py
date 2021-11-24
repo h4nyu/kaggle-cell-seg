@@ -7,7 +7,7 @@ from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import masks_to_boxes, box_convert
-from .util import grid, draw_save, ToPatches
+from .utils import grid, draw_save, ToPatches, MergePatchedMasks
 from .backbones import FPNLike
 
 
@@ -477,14 +477,15 @@ class PatchInferenceStep:
         model: Solo,
         batch_adaptor: BatchAdaptor,
         to_masks: ToMasks,
-        to_patches: ToPatches,
+        patch_size: int,
         use_amp: bool = True,
     ) -> None:
         self.model = model
         self.bath_adaptor = batch_adaptor
         self.to_masks = to_masks
         self.use_amp = use_amp
-        self.to_patches = to_patches
+        self.to_patches = ToPatches(patch_size)
+        self.merge_masks = MergePatchedMasks(patch_size)
 
     @torch.no_grad()
     def __call__(
@@ -492,11 +493,16 @@ class PatchInferenceStep:
         images: Tensor,
     ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch
         with autocast(enabled=self.use_amp):
-            padded_images, patch_batch, patch_grids = self.to_patches(images)
+            _, _, h, w = images.shape
+            padded_images, patch_batch, patch_grid = self.to_patches(images)
+            pred_mask_batch = []
+            pred_label_batch = []
             for patches in patch_batch:
                 pred_category_grids, pred_all_masks = self.model(patches)
-                pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
+                patch_mask_batch, patch_label_batch, patch_score_batch = self.to_masks(
                     pred_category_grids, pred_all_masks
                 )
-
+                pred_masks = self.merge_masks(patch_mask_batch, patch_grid)[:, :h, :w]
+                pred_mask_batch.append(pred_masks)
+                pred_label_batch.append(torch.cat(patch_label_batch))
             return pred_mask_batch, pred_label_batch
