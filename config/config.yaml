@@ -59,7 +59,7 @@ criterion:
   mask_weight: 1.0
 
 optimizer:
-  lr: 1e-3
+  lr: 1e-4
 
 scheduler:
   mode: min

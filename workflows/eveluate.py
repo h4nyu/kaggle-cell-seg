@@ -61,20 +61,12 @@ def main(cfg: DictConfig) -> None:
         use_amp=cfg.use_amp,
         patch_size=cfg.patch_size,
     )
-    # inference_step = PatchInferenceStep(
-    #     model=model,
-    #     to_masks=to_masks,
-    #     batch_adaptor=batch_adaptor,
-    #     use_amp=cfg.use_amp,
-    #     patch_size=cfg.patch_size,
-    # )
     to_device = ToDevice(cfg.device)
     dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
     loader = DataLoader(
-        Subset(dataset, indices=list(range(2))),
+        Subset(dataset, indices=list(range(3))),
         collate_fn=collate_fn,
         batch_size=1,
-        # **cfg.validation_loader,
     )
 
     idx = 0
@@ -88,9 +80,9 @@ def main(cfg: DictConfig) -> None:
             gt_count = gt_masks.shape[0]
             if gt_count == 0:
                 continue
-            # score = mask_ap.accumulate(masks, gt_masks)
-            # logger.info(f"{idx=} {pred_count=} {gt_count=} {score=}")
-            logger.info(f"{idx=} {pred_count=} {gt_count=}")
+            score = mask_ap.accumulate(masks, gt_masks)
+            logger.info(f"{idx=} {pred_count=} {gt_count=} {score=}")
+            # logger.info(f"{idx=} {pred_count=} {gt_count=}")
             draw_save(
                 os.path.join("/store", cfg.name, f"{idx}_pred.png"),
                 image,

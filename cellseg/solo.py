@@ -491,6 +491,7 @@ class PatchInferenceStep:
         self,
         images: Tensor,
     ) -> tuple[list[Tensor], list[Tensor]]:  # mask_batch, label_batch
+        self.model.eval()
         with autocast(enabled=self.use_amp):
             _, _, h, w = images.shape
             padded_images, patch_batch, patch_grid = self.to_patches(images)
