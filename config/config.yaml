@@ -56,7 +56,7 @@ dataset:
   train_csv: /store/train.csv
 criterion:
   category_weight: 1.0
-  mask_weight: 20.0
+  mask_weight: 1.0
 
 optimizer:
   lr: 1e-3

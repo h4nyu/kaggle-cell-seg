@@ -60,7 +60,7 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
 def test_cell_train_aug() -> None:
-    transform = TrainTranform(original_size=cfg.original_size)
+    transform = TrainTranform(size=cfg.size)
     dataset = CellTrainDataset(
         transform=transform,
     )
@@ -72,14 +72,14 @@ def test_cell_train_aug() -> None:
         masks = sample["masks"]
         labels = sample["labels"]
         draw_save(f"/store/test-cell-train-{i}.png", image, masks)
-        assert image.shape == (3, cfg.original_size, cfg.original_size)
+        assert image.shape == (3, cfg.size, cfg.size)
         assert image.shape[1:] == masks.shape[1:]
         assert labels.shape[0] == masks.shape[0]
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
 def test_cell_validation() -> None:
-    transform = Tranform(original_size=cfg.original_size)
+    transform = Tranform(size=cfg.patch_size)
     dataset = CellTrainDataset(
         transform=transform,
     )
@@ -90,6 +90,6 @@ def test_cell_validation() -> None:
     masks = sample["masks"]
     labels = sample["labels"]
     draw_save(f"/store/test-cell-validation.png", image, masks)
-    assert image.shape == (3, cfg.original_size, cfg.original_size)
+    assert image.shape == (3, cfg.size, cfg.size)
     assert image.shape[1:] == masks.shape[1:]
     assert labels.shape[0] == masks.shape[0]

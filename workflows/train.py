@@ -61,7 +61,7 @@ def main(cfg: DictConfig) -> None:
         batch_adaptor=batch_adaptor,
         use_amp=cfg.use_amp,
         to_masks=to_masks,
-        scheduler=scheduler,
+        # scheduler=scheduler,
     )
     validation_step = ValidationStep(
         model=model,
@@ -72,13 +72,13 @@ def main(cfg: DictConfig) -> None:
     train_dataset = CellTrainDataset(
         **cfg.dataset,
         transform=TrainTranform(
-            original_size=cfg.patch_size,
+            size=cfg.patch_size,
         ),
     )
     val_dataset = CellTrainDataset(
         **cfg.dataset,
         transform=Tranform(
-            original_size=cfg.patch_size,
+            size=cfg.patch_size,
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)

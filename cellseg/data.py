@@ -67,14 +67,15 @@ inv_normalize = A.Normalize(
 
 
 class TrainTranform:
-    def __init__(self, original_size: int):
+    def __init__(self, size: int):
 
         self.transform = A.Compose(
             [
                 A.Flip(),
                 A.RandomRotate90(),
                 # A.RandomScale(scale_limit=(0.95, 1.05)),
-                A.RandomCrop(width=original_size, height=original_size, p=1.0),
+                A.CropNonEmptyMaskIfExists(width=size, height=size, p=1.0),
+                # A.RandomCrop(, p=1.0),
                 ToTensorV2(),
             ]
         )
@@ -84,11 +85,12 @@ class TrainTranform:
 
 
 class Tranform:
-    def __init__(self, original_size: int):
+    def __init__(self, size: int):
 
         self.transform = A.Compose(
             [
-                A.RandomCrop(width=original_size, height=original_size, p=1.0),
+                A.CropNonEmptyMaskIfExists(width=size, height=size, p=1.0),
+                # A.RandomCrop(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
         )
