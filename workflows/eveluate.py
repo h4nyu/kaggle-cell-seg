@@ -14,6 +14,7 @@ from cellseg.solo import (
     ValidationStep,
     ToMasks,
     PatchInferenceStep,
+    InferenceStep,
     BatchAdaptor,
 )
 from cellseg.metrics import MaskAP
@@ -50,7 +51,7 @@ def main(cfg: DictConfig) -> None:
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
         grid_size=cfg.model.grid_size,
-        original_size=cfg.original_size,
+        original_size=cfg.patch_size,
     )
     to_masks = ToMasks(**cfg.to_masks)
     inference_step = PatchInferenceStep(
@@ -60,11 +61,15 @@ def main(cfg: DictConfig) -> None:
         use_amp=cfg.use_amp,
         patch_size=cfg.patch_size,
     )
+    # inference_step = PatchInferenceStep(
+    #     model=model,
+    #     to_masks=to_masks,
+    #     batch_adaptor=batch_adaptor,
+    #     use_amp=cfg.use_amp,
+    #     patch_size=cfg.patch_size,
+    # )
     to_device = ToDevice(cfg.device)
-    dataset = CellTrainDataset(
-        **cfg.dataset,
-        transform=Tranform(cfg.patch_size)
-    )
+    dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
     loader = DataLoader(
         Subset(dataset, indices=list(range(2))),
         collate_fn=collate_fn,

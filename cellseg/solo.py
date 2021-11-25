@@ -137,7 +137,6 @@ class Criterion:
         device = pred_category_grids.device
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
         mask_loss = torch.tensor(0.0).to(device)
-        count = 0
         for gt_masks, mask_index, pred_masks in zip(
             gt_mask_batch, mask_index_batch, all_masks
         ):
@@ -145,8 +144,7 @@ class Criterion:
                 mask_loss += self.mask_loss(
                     pred_masks[mask_index[:, 0]], gt_masks[mask_index[:, 1]]
                 )
-                count += 1
-        mask_loss = mask_loss / count
+        mask_loss = mask_loss / len(gt_mask_batch)
         loss = self.category_weight * category_loss + self.mask_weight * mask_loss
         return loss, category_loss, mask_loss
 
@@ -286,7 +284,8 @@ class ToMasks:
         batch_size = category_grids.shape[0]
         grid_size = category_grids.shape[2]
         category_grids = category_grids * (
-            (self.max_pool(category_grids) == category_grids) & (category_grids > self.category_threshold)
+            (self.max_pool(category_grids) == category_grids)
+            & (category_grids > self.category_threshold)
         )
 
         to_index = CentersToGridIndex(grid_size=grid_size)
@@ -338,6 +337,7 @@ class TrainStep:
         batch_adaptor: BatchAdaptor,
         use_amp: bool = True,
         to_masks: Optional[ToMasks] = None,
+        scheduler: Optional[Any] = None,
     ) -> None:
         self.criterion = criterion
         self.model = model
@@ -346,6 +346,7 @@ class TrainStep:
         self.use_amp = use_amp
         self.scaler = GradScaler()
         self.to_masks = to_masks
+        self.scheduler = scheduler
 
     def __call__(self, batch: Batch) -> dict[str, float]:
         self.model.train()
@@ -371,18 +372,21 @@ class TrainStep:
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
-        # if self.to_masks is not None:
-        #     pred_mask_batch, _, _ = self.to_masks(pred_category_grids, pred_all_masks)
-        #     draw_save(
-        #         "/store/gt.png",
-        #         images[0],
-        #         gt_mask_batch[0],
-        #     )
-        #     draw_save(
-        #         "/store/pred.png",
-        #         images[0],
-        #         pred_mask_batch[0],
-        #     )
+            if self.scheduler is not None:
+                self.scheduler.step(loss)
+
+        if self.to_masks is not None:
+            pred_mask_batch, _, _ = self.to_masks(pred_category_grids, pred_all_masks)
+            draw_save(
+                "/app/test_outputs/gt.png",
+                images[0],
+                gt_mask_batch[0],
+            )
+            draw_save(
+                "/app/test_outputs/pred.png",
+                images[0],
+                pred_mask_batch[0],
+            )
 
         return dict(
             loss=loss.item(),
@@ -398,13 +402,11 @@ class ValidationStep:
         model: Solo,
         batch_adaptor: BatchAdaptor,
         to_masks: ToMasks,
-        use_amp: bool = True,
     ) -> None:
         self.criterion = criterion
         self.model = model
         self.batch_adaptor = batch_adaptor
         self.to_masks = to_masks
-        self.use_amp = use_amp
 
     @torch.no_grad()
     def __call__(
@@ -413,28 +415,27 @@ class ValidationStep:
         on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
     ) -> dict[str, float]:  # logs
         self.model.eval()
-        with autocast(enabled=self.use_amp):
-            images, gt_mask_batch, gt_label_batch = batch
-            gt_category_grids, mask_index_batch = self.batch_adaptor(
-                mask_batch=gt_mask_batch, label_batch=gt_label_batch
+        images, gt_mask_batch, gt_label_batch = batch
+        gt_category_grids, mask_index_batch = self.batch_adaptor(
+            mask_batch=gt_mask_batch, label_batch=gt_label_batch
+        )
+        pred_category_grids, pred_all_masks = self.model(images)
+        loss, category_loss, mask_loss = self.criterion(
+            (
+                pred_category_grids,
+                pred_all_masks,
+            ),
+            (
+                gt_category_grids,
+                gt_mask_batch,
+                mask_index_batch,
+            ),
+        )
+        if on_end is not None:
+            pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
+                pred_category_grids, pred_all_masks
             )
-            pred_category_grids, pred_all_masks = self.model(images)
-            loss, category_loss, mask_loss = self.criterion(
-                (
-                    pred_category_grids,
-                    pred_all_masks,
-                ),
-                (
-                    gt_category_grids,
-                    gt_mask_batch,
-                    mask_index_batch,
-                ),
-            )
-            if on_end is not None:
-                pred_mask_batch, pred_label_batch, score_batch = self.to_masks(
-                    pred_category_grids, pred_all_masks
-                )
-                on_end(pred_mask_batch, gt_mask_batch)
+            on_end(pred_mask_batch, gt_mask_batch)
         return dict(
             loss=loss.item(),
             category_loss=category_loss.item(),

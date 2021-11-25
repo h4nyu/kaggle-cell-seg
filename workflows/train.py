@@ -51,8 +51,11 @@ def main(cfg: DictConfig) -> None:
         original_size=cfg.patch_size,
     )
     to_masks = ToMasks(**cfg.to_masks)
+
+    optimizer = optim.Adam(model.parameters(), **cfg.optimizer)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
     train_step = TrainStep(
-        optimizer=optim.Adam(model.parameters(), **cfg.optimizer),
+        optimizer=optimizer,
         model=model,
         criterion=criterion,
         batch_adaptor=batch_adaptor,
@@ -64,7 +67,6 @@ def main(cfg: DictConfig) -> None:
         criterion=criterion,
         batch_adaptor=batch_adaptor,
         to_masks=to_masks,
-        use_amp=cfg.use_amp,
     )
     train_dataset = CellTrainDataset(
         **cfg.dataset,
@@ -96,17 +98,18 @@ def main(cfg: DictConfig) -> None:
             train_log = train_step(batch)
             train_reduer.accumulate(train_log)
             logger.info(f"train batch {train_log} ")
-        logger.info(f"train {train_reduer.value} ")
+        logger.info(f"epoch train {train_reduer.value} ")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch in val_loader:
             batch = to_device(*batch)
             validation_log = validation_step(batch)
             val_reduer.accumulate(validation_log)
-        if score > val_reduer.value["loss"]:
-            score = checkpoint.save(model, val_reduer.value["loss"])
+            logger.info(f"eval batch {validation_log} ")
+        if score > val_reduer.value["mask_loss"]:
+            score = checkpoint.save(model, val_reduer.value["mask_loss"])
             logger.info(f"save checkpoint")
-        logger.info(f"eval {score=} {val_reduer.value} {mask_ap.value=}")
+        logger.info(f"epoch eval {score=} {val_reduer.value} {mask_ap.value=}")
 
 
 if __name__ == "__main__":
