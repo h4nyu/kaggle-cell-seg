@@ -61,6 +61,7 @@ def main(cfg: DictConfig) -> None:
         batch_adaptor=batch_adaptor,
         use_amp=cfg.use_amp,
         to_masks=to_masks,
+        scheduler=scheduler,
     )
     validation_step = ValidationStep(
         model=model,
