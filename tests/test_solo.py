@@ -106,7 +106,6 @@ def test_to_masks() -> None:
     gt_mask_batch = [gt_masks]
     gt_label_batch = [labels]
     grids, gt_index_batch = ba(gt_mask_batch, gt_label_batch)
-    grids[0, 0, 0, 0] = 0.9
     to_masks = ToMasks()
     all_masks = torch.zeros(
         1, grid_size * grid_size, original_size, original_size
@@ -122,7 +121,7 @@ def test_to_masks() -> None:
         == len(gt_label_batch)
         == len(score_batch)
     )
-    assert score_batch[0][0] == 0.9
+    assert score_batch[0][0] == 1.0
     for masks, gt_masks in zip(mask_batch, gt_mask_batch):
         assert (masks ^ gt_masks).sum() == 0
 
