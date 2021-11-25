@@ -75,7 +75,7 @@ class TrainTranform:
                 A.RandomRotate90(),
                 # A.RandomScale(scale_limit=(0.95, 1.05)),
                 A.CropNonEmptyMaskIfExists(width=size, height=size, p=1.0),
-                # A.RandomCrop(, p=1.0),
+                # A.RandomCrop(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
         )

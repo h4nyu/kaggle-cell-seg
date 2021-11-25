@@ -52,7 +52,7 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
         )
         img = read_image(os.path.join(cfg.data.train_images_path, f"{image_id}.png"))
         draw_save(
-            os.path.join(cfg.data.root_path, f"test-plot-{image_id}-{cell_type}.png"),
+            f"/app/test_outputs/test-plot-{image_id}-{cell_type}.png",
             img / 255,
             masks=masks,
         )
@@ -60,7 +60,7 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
 def test_cell_train_aug() -> None:
-    transform = TrainTranform(size=cfg.size)
+    transform = TrainTranform(size=cfg.patch_size)
     dataset = CellTrainDataset(
         transform=transform,
     )
@@ -71,8 +71,8 @@ def test_cell_train_aug() -> None:
         image = sample["image"]
         masks = sample["masks"]
         labels = sample["labels"]
-        draw_save(f"/store/test-cell-train-{i}.png", image, masks)
-        assert image.shape == (3, cfg.size, cfg.size)
+        draw_save(f"/app/test_outputs/test-cell-train-{i}.png", image, masks)
+        assert image.shape == (3, cfg.patch_size, cfg.patch_size)
         assert image.shape[1:] == masks.shape[1:]
         assert labels.shape[0] == masks.shape[0]
 
