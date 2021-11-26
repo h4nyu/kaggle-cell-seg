@@ -313,7 +313,7 @@ class ToMasks:
             masks = masks[empty_filter]
             labels = all_labels[filterd][empty_filter]
             scores = category_grids[
-                batch_idx, labels, cy[filterd][empty_filter], cy[filterd][empty_filter]
+                batch_idx, labels, cy[filterd][empty_filter], cx[filterd][empty_filter]
             ]
             if self.use_nms:
                 scores = self.nms(masks, labels, scores)
