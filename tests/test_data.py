@@ -59,11 +59,19 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
-def test_cell_train_aug() -> None:
-    transform = TrainTranform(size=cfg.patch_size)
+@pytest.mark.parametrize("size, smallest_area", [
+    (128, 36),
+    (128, 64),
+    (128, 81),
+    (192, 36),
+    (192, 64),
+    (192, 81),
+])
+def test_cell_train_aug(size:int, smallest_area:int) -> None:
+    transform = TrainTranform(size=size)
     dataset = CellTrainDataset(
         transform=transform,
-        smallest_area=25,
+        smallest_area=smallest_area,
     )
     assert len(dataset) == 606
     for i in range(3):
@@ -72,8 +80,8 @@ def test_cell_train_aug() -> None:
         image = sample["image"]
         masks = sample["masks"]
         labels = sample["labels"]
-        draw_save(f"/app/test_outputs/test-cell-train-{i}.png", image, masks)
-        assert image.shape == (3, cfg.patch_size, cfg.patch_size)
+        draw_save(f"/app/test_outputs/test-cell-train-{i}-{size}-{smallest_area}.png", image, masks)
+        assert image.shape == (3, size, size)
         assert image.shape[1:] == masks.shape[1:]
         assert labels.shape[0] == masks.shape[0]
 
@@ -83,6 +91,7 @@ def test_cell_validation() -> None:
     transform = Tranform(size=cfg.patch_size)
     dataset = CellTrainDataset(
         transform=transform,
+        **cfg.dataset,
     )
     assert len(dataset) == 606
     sample = dataset[1]
