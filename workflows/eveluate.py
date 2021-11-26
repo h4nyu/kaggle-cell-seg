@@ -62,9 +62,10 @@ def main(cfg: DictConfig) -> None:
         patch_size=cfg.patch_size,
     )
     to_device = ToDevice(cfg.device)
-    dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
+    # dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
+    dataset = CellTrainDataset(**cfg.dataset)
     loader = DataLoader(
-        Subset(dataset, indices=list(range(3))),
+        Subset(dataset, indices=list(range(10))),
         collate_fn=collate_fn,
         batch_size=1,
     )
