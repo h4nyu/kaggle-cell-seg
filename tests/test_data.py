@@ -59,15 +59,18 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
-@pytest.mark.parametrize("size, smallest_area", [
-    (128, 36),
-    (128, 64),
-    (128, 81),
-    (192, 36),
-    (192, 64),
-    (192, 81),
-])
-def test_cell_train_aug(size:int, smallest_area:int) -> None:
+@pytest.mark.parametrize(
+    "size, smallest_area",
+    [
+        (128, 36),
+        (128, 64),
+        (128, 81),
+        (192, 36),
+        (192, 64),
+        (192, 81),
+    ],
+)
+def test_cell_train_aug(size: int, smallest_area: int) -> None:
     transform = TrainTranform(size=size)
     dataset = CellTrainDataset(
         transform=transform,
@@ -80,7 +83,11 @@ def test_cell_train_aug(size:int, smallest_area:int) -> None:
         image = sample["image"]
         masks = sample["masks"]
         labels = sample["labels"]
-        draw_save(f"/app/test_outputs/test-cell-train-{i}-{size}-{smallest_area}.png", image, masks)
+        draw_save(
+            f"/app/test_outputs/test-cell-train-{i}-{size}-{smallest_area}.png",
+            image,
+            masks,
+        )
         assert image.shape == (3, size, size)
         assert image.shape[1:] == masks.shape[1:]
         assert labels.shape[0] == masks.shape[0]

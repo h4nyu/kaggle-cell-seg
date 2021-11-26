@@ -19,33 +19,48 @@ class ToCategoryGrid:
         self,
         num_classes: int,
         grid_size: int,
+        image_size: int,
     ) -> None:
         self.num_classes = num_classes
         self.grid_size = grid_size
-        self.to_index = CentersToGridIndex(self.grid_size)
+        self.reduction = image_size // grid_size
+        self.image_size = image_size
 
     @torch.no_grad()
     def __call__(
         self,
-        centers: Tensor,
+        masks: Tensor,
         labels: Tensor,
-    ) -> tuple[Tensor, Tensor]:  # category_grid, matched
-        device = centers.device
-        dtype = centers.dtype
+    ) -> tuple[Tensor, Tensor, Tensor]:  # category_grid, size_grid, matched
+        device = masks.device
+        dtype = masks.dtype
         cagetory_grid = torch.zeros(
             self.num_classes, self.grid_size, self.grid_size, dtype=dtype
         ).to(device)
-        if len(centers) == 0:
-            matched = torch.zeros(0, 2).long().to(device)
-            return cagetory_grid, matched
-        center_index = torch.arange(len(centers)).to(device)
-        mask_index = self.to_index(centers)
-        flattend = cagetory_grid.view(-1)
-        index = labels * self.grid_size ** 2 + mask_index
-        flattend[index.long()] = 1
-        cagetory_grid = flattend.view(self.num_classes, self.grid_size, self.grid_size)
+        size_grid = torch.zeros(
+            2, self.grid_size, self.grid_size, dtype=torch.float
+        ).to(device)
+        matched = torch.zeros(0, 2).long().to(device)
+        if len(masks) == 0:
+            return cagetory_grid, size_grid, matched
+        boxes = box_convert(masks_to_boxes(masks), in_fmt="xyxy", out_fmt="cxcywh")
+        cx, cy = (boxes[:, :2] / self.reduction).long().unbind(-1)
+
+        center_index = torch.arange(len(boxes)).to(device)
+        mask_index = cy * self.grid_size + cx
         matched = torch.stack([mask_index, center_index], dim=1)
-        return cagetory_grid, matched
+
+        cagetory_flattend = cagetory_grid.view(-1)
+        index = (labels * self.grid_size ** 2 + mask_index).long()
+        cagetory_flattend[index] = 1
+        cagetory_grid = cagetory_flattend.view(
+            self.num_classes, self.grid_size, self.grid_size
+        )
+
+        for wh, cx, cy in zip(boxes[:, 2:] / self.image_size, cx, cy):
+            size_grid[:, cy, cx] = wh
+
+        return cagetory_grid, size_grid, matched
 
 
 class MasksToCenters:
@@ -88,9 +103,9 @@ class BatchAdaptor:
         self.to_category_grid = ToCategoryGrid(
             grid_size=grid_size,
             num_classes=num_classes,
+            reduction=original_size // grid_size,
         )
         self.scale = grid_size / original_size
-        self.masks_to_centers = MasksToCenters()
 
     @torch.no_grad()
     def __call__(
@@ -98,20 +113,20 @@ class BatchAdaptor:
         mask_batch: list[Tensor],
         label_batch: list[Tensor],
     ) -> tuple[
-        Tensor, list[Tensor]
+        Tensor, Tensor, list[Tensor]
     ]:  # category_grids, list of mask_index, list of labels
         mask_index_batch: list[Tensor] = []
         cate_grids: list[Tensor] = []
+        size_grids: list[Tensor] = []
         for masks, labels in zip(mask_batch, label_batch):
-            scaled_centers = self.masks_to_centers(masks) * self.scale
-            category_grid, mask_index = self.to_category_grid(
-                centers=scaled_centers,
+            category_grid, size_grid, mask_index = self.to_category_grid(
+                masks=masks,
                 labels=labels,
             )
             cate_grids.append(category_grid)
+            size_grids.append(size_grid)
             mask_index_batch.append(mask_index)
-        category_grids = torch.stack(cate_grids)
-        return category_grids, mask_index_batch
+        return torch.stack(cate_grids), torch.stack(size_grids), mask_index_batch
 
 
 class Criterion:
@@ -119,23 +134,29 @@ class Criterion:
         self,
         mask_weight: float = 1.0,
         category_weight: float = 1.0,
+        size_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
         self.mask_loss = FocalLoss()
+        self.size_loss = nn.MSELoss()
         self.category_weight = category_weight
         self.mask_weight = mask_weight
+        self.size_weight = size_weight
 
     def __call__(
         self,
-        inputs: tuple[Tensor, Tensor],  # pred_cate_grids, all_masks
+        inputs: tuple[
+            Tensor, Tensor, Tensor
+        ],  # pred_cate_grids, pred_size_grid, all_masks
         targets: tuple[
-            Tensor, list[Tensor], list[Tensor]
-        ],  # gt_cate_grids, mask_batch, mask_index_batch
-    ) -> tuple[Tensor, Tensor, Tensor]:
-        pred_category_grids, all_masks = inputs
-        gt_category_grids, gt_mask_batch, mask_index_batch = targets
+            Tensor, Tensor, list[Tensor], list[Tensor]
+        ],  # gt_cate_grids, gt_size_grid, ,mask_batch, mask_index_batch
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        pred_category_grids, pred_size_grid, all_masks = inputs
+        gt_category_grids, gt_size_grid, gt_mask_batch, mask_index_batch = targets
         device = pred_category_grids.device
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
+        size_loss = self.size_loss(pred_size_grid, gt_size_grid)
         mask_loss = torch.tensor(0.0).to(device)
         for gt_masks, mask_index, pred_masks in zip(
             gt_mask_batch, mask_index_batch, all_masks
@@ -145,8 +166,12 @@ class Criterion:
                     pred_masks[mask_index[:, 0]], gt_masks[mask_index[:, 1]]
                 )
         mask_loss = mask_loss / len(gt_mask_batch)
-        loss = self.category_weight * category_loss + self.mask_weight * mask_loss
-        return loss, category_loss, mask_loss
+        loss = (
+            self.category_weight * category_loss
+            + self.mask_weight * mask_loss
+            + self.size_weight * size_loss
+        )
+        return loss, category_loss, size_loss, mask_loss
 
 
 class Solo(nn.Module):
@@ -288,7 +313,7 @@ class ToMasks:
 
     @torch.no_grad()
     def __call__(
-        self, category_grids: Tensor, all_masks: Tensor
+        self, category_grids: Tensor, all_masks: Tensor, box_gids: Tensor
     ) -> tuple[
         list[Tensor], list[Tensor], list[Tensor]
     ]:  # mask_batch, label_batch, mask_indecies
@@ -303,14 +328,14 @@ class ToMasks:
         (
             batch_indecies,
             all_labels,
-            cy,
-            cx,
+            all_cy,
+            all_cx,
         ) = category_grids.nonzero(as_tuple=True)
         mask_indecies = to_index(torch.stack([cx, cy], dim=1))
         mask_batch: list[Tensor] = []
         label_batch: list[Tensor] = []
         score_batch: list[Tensor] = []
-        for batch_idx in range(batch_size):
+        for (batch_idx,) in range(batch_size):
             filterd = batch_indecies == batch_idx
             if len(filterd) == 0:
                 mask_batch.append(
@@ -324,13 +349,16 @@ class ToMasks:
             masks = masks[empty_filter]
             labels = all_labels[filterd][empty_filter]
             scores = category_grids[
-                batch_idx, labels, cy[filterd][empty_filter], cy[filterd][empty_filter]
+                batch_idx, labels, cy[filterd][empty_filter], cx[filterd][empty_filter]
+            ]
+            box_sizes = size_grids[
+                batch_idx, :, cy[filterd][empty_filter], cx[filterd][empty_filter]
             ]
             if self.use_nms:
                 scores = self.nms(masks, labels, scores)
                 print(scores)
                 score_filter = scores > self.category_threshold
-                if(len(score_filter) > 0):
+                if len(score_filter) > 0:
                     labels = labels[score_filter]
                     masks = masks[score_filter]
                     scores = scores[score_filter]
@@ -365,17 +393,19 @@ class TrainStep:
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
-            gt_category_grids, mask_index_batch = self.bath_adaptor(
+            gt_category_grids, gt_size_grids, mask_index_batch = self.bath_adaptor(
                 mask_batch=gt_mask_batch, label_batch=gt_label_batch
             )
-            pred_category_grids, pred_all_masks = self.model(images)
+            pred_category_grids, pred_size_grids, pred_all_masks = self.model(images)
             loss, category_loss, mask_loss = self.criterion(
                 (
                     pred_category_grids,
+                    pred_size_grids,
                     pred_all_masks,
                 ),
                 (
                     gt_category_grids,
+                    gt_size_grids,
                     gt_mask_batch,
                     mask_index_batch,
                 ),
