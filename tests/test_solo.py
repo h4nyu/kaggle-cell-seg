@@ -40,8 +40,8 @@ def test_center_to_grid_index() -> None:
 def test_category_adaptor() -> None:
     grid_size = 8
     num_classes = 1
-    image_size = grid_size * 2
-    masks = torch.zeros(2, image_size, image_size).bool()
+    patch_size = grid_size * 2
+    masks = torch.zeros(2, patch_size, patch_size).bool()
     labels = torch.zeros(len(masks))
     masks[0, 0:5, 1:3] = True
     masks[1, 4:9, 3:6] = True
@@ -49,7 +49,7 @@ def test_category_adaptor() -> None:
     to_grid = ToCategoryGrid(
         num_classes=num_classes,
         grid_size=grid_size,
-        image_size=image_size,
+        patch_size=patch_size,
     )
     category_grid, size_grid, matched = to_grid(
         masks=masks,
@@ -60,8 +60,8 @@ def test_category_adaptor() -> None:
     assert category_grid.sum() == len(matched)
     assert category_grid[0, 1, 0] == 1
     assert category_grid[0, 3, 2] == 1
-    assert size_grid[:, 1, 0].tolist() == [1.0 / image_size, 4.0 / image_size]
-    assert size_grid[:, 3, 2].tolist() == [2.0 / image_size, 4.0 / image_size]
+    assert size_grid[:, 1, 0].tolist() == [1.0 / patch_size, 4.0 / patch_size]
+    assert size_grid[:, 3, 2].tolist() == [2.0 / patch_size, 4.0 / patch_size]
     assert matched.tolist() == [[1 * grid_size + 0, 0], [3 * grid_size + 2, 1]]
 
 
@@ -85,33 +85,33 @@ def test_batch_adaptor() -> None:
     assert len(index_batch) == batch_size
     for index, masks in zip(index_batch, mask_batch):
         assert index.shape[0] == masks.shape[0]
-        print(index.shape, masks.shape)
 
 
 def test_to_masks() -> None:
     grid_size = 4
-    original_size = 8
-    gt_masks = torch.zeros(2, original_size, original_size).bool()
+    patch_size = 8
+    gt_masks = torch.zeros(2, patch_size, patch_size).bool()
     labels = torch.zeros(len(gt_masks))
-    gt_masks[0, 0:3, 1:2] = True
-    gt_masks[1, 3:4, 3:5] = True
+    gt_masks[0, 0:3, 1:4] = True
+    gt_masks[1, 3:6, 3:6] = True
 
     ba = BatchAdaptor(
         num_classes=1,
         grid_size=grid_size,
-        original_size=original_size,
+        patch_size=patch_size,
     )
     gt_mask_batch = [gt_masks]
     gt_label_batch = [labels]
-    grids, size_grids, gt_index_batch = ba(gt_mask_batch, gt_label_batch)
-    to_masks = ToMasks()
-    all_masks = torch.zeros(
-        1, grid_size * grid_size, original_size, original_size
-    ).bool()
-    for gt_idx, all_idx in enumerate(gt_index_batch[0]):
+    category_grids, size_grids, gt_index_batch = ba(gt_mask_batch, gt_label_batch)
+    to_masks = ToMasks(patch_size=patch_size)
+    all_masks = torch.zeros(1, grid_size * grid_size, patch_size, patch_size).bool()
+
+    for all_idx, gt_idx in gt_index_batch[0]:
         all_masks[0][all_idx] = gt_masks[gt_idx]
 
-    mask_batch, label_batch, score_batch = to_masks(grids, all_masks)
+    mask_batch, label_batch, score_batch = to_masks(
+        category_grids, size_grids, all_masks
+    )
     assert (
         len(mask_batch)
         == len(gt_mask_batch)
@@ -119,9 +119,9 @@ def test_to_masks() -> None:
         == len(gt_label_batch)
         == len(score_batch)
     )
-    assert score_batch[0][0] == 1.0
+    assert score_batch[0].tolist() == [1.0, 1.0]
     for masks, gt_masks in zip(mask_batch, gt_mask_batch):
-        assert (masks ^ gt_masks).sum() == 0
+        assert (masks ^ gt_masks).sum() <= 4
 
 
 def test_solo() -> None:
@@ -207,11 +207,11 @@ def test_inference_step() -> None:
         category_feat_range=category_feat_range,
         mask_feat_range=mask_feat_range,
     )
-    to_masks = ToMasks()
+    to_masks = ToMasks(patch_size=patch_size)
     batch_adaptor = BatchAdaptor(
         num_classes=num_classes,
         grid_size=grid_size,
-        original_size=patch_size,
+        patch_size=patch_size,
     )
     to_patches = ToPatches(patch_size=patch_size)
     inference_step = PatchInferenceStep(

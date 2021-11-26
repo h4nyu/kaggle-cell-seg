@@ -1,4 +1,4 @@
-name: solo-baseline-patch-b0-16-64
+name: solo-baseline-patch-crop-b0-16-64
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -7,8 +7,7 @@ log_keys:
   - loss
   - category_loss
   - mask_loss
-
-
+  - size_loss
 
 root_path: &root_path /store
 
@@ -23,7 +22,7 @@ data:
     - cort
 
 num_classes: 1
-patch_size: 128
+patch_size: &patch_size 128
 fold:
   index: 0
   n_splits: 6
@@ -35,7 +34,7 @@ backbone:
 model:
   grid_size: 16
   category_feat_range: [3, 6]
-  mask_feat_range: [0, 4]
+  mask_feat_range: [0, 3]
   hidden_channels: 64
 
 mask_ap:
@@ -44,6 +43,7 @@ mask_ap:
 
 
 to_masks:
+  patch_size: *patch_size
   category_threshold: 0.7
   mask_threshold: 0.7
   kernel_size: 3
@@ -56,7 +56,8 @@ dataset:
 
 criterion:
   category_weight: 1.0
-  mask_weight: 2.0
+  mask_weight: 1.0
+  size_weight: 1.0
 
 optimizer:
   lr: 5e-4
