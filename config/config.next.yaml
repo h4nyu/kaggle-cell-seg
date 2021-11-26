@@ -8,10 +8,7 @@ log_keys:
   - category_loss
   - mask_loss
 
-
-
 root_path: &root_path /store
-
 
 data:
   root_path: *root_path
@@ -46,9 +43,9 @@ mask_ap:
 
 
 to_masks:
-  category_threshold: 0.5
-  mask_threshold: 0.5
-  kernel_size: 3
+  category_threshold: 0.55
+  mask_threshold: 0.75
+  kernel_size: 5
   use_nms: false
 
 dataset:
@@ -57,10 +54,10 @@ dataset:
   smallest_area: 81
 criterion:
   category_weight: 1.0
-  mask_weight: 1.0
+  mask_weight: 2.0
 
 optimizer:
-  lr: 1e-3
+  lr: 1e-4
 
 scheduler:
   mode: min

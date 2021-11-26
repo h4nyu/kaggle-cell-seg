@@ -36,7 +36,7 @@ from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
 
-@hydra.main(config_path="/app/config", config_name="config")
+@hydra.main(config_path="/app/config", config_name="config.next")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
@@ -62,8 +62,8 @@ def main(cfg: DictConfig) -> None:
         patch_size=cfg.patch_size,
     )
     to_device = ToDevice(cfg.device)
-    # dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
-    dataset = CellTrainDataset(**cfg.dataset)
+    dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
+    # dataset = CellTrainDataset(**cfg.dataset)
     loader = DataLoader(
         Subset(dataset, indices=list(range(10))),
         collate_fn=collate_fn,

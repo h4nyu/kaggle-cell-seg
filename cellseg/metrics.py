@@ -121,4 +121,5 @@ class MaskAP:
             )
             running_p += p
             log[th] = p
+        print(log)
         return running_p / len(self.thresholds)

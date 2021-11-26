@@ -174,6 +174,16 @@ class Solo(nn.Module):
             use_cord=False,
         )
 
+        self.size_head = Head(
+            hidden_channels=hidden_channels,
+            num_classes=2,
+            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            reductions=backbone.reductions[
+                category_feat_range[0] : category_feat_range[1]
+            ],
+            use_cord=False,
+        )
+
         self.mask_head = Head(
             hidden_channels=hidden_channels,
             num_classes=grid_size ** 2,
@@ -182,19 +192,20 @@ class Solo(nn.Module):
             use_cord=True,
         )
 
-    def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor]:
+    def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         features = self.backbone(image_batch)
         category_feats = features[
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
         category_grid = self.category_head(category_feats)
+        size_grid = self.size_head(category_feats)
         mask_feats = features[self.mask_feat_range[0] : self.mask_feat_range[1]]
         masks = self.mask_head(mask_feats)
-        return (category_grid, masks)
+        return (category_grid, size_grid, masks)
 
 
 class MatrixNms:
-    def __init__(self, kernel: str = "gaussian", sigma: float = 2.0) -> None:
+    def __init__(self, kernel: str = "gaussian", sigma: float = 3.0) -> None:
         self.kernel = kernel
         self.sigma = sigma
 
@@ -317,10 +328,12 @@ class ToMasks:
             ]
             if self.use_nms:
                 scores = self.nms(masks, labels, scores)
+                print(scores)
                 score_filter = scores > self.category_threshold
-                labels = labels[score_filter]
-                masks = masks[score_filter]
-                scores = scores[score_filter]
+                if(len(score_filter) > 0):
+                    labels = labels[score_filter]
+                    masks = masks[score_filter]
+                    scores = scores[score_filter]
             label_batch.append(labels)
             mask_batch.append(masks)
             score_batch.append(scores)
