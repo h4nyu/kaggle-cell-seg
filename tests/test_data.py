@@ -63,6 +63,7 @@ def test_cell_train_aug() -> None:
     transform = TrainTranform(size=cfg.patch_size)
     dataset = CellTrainDataset(
         transform=transform,
+        smallest_area=25,
     )
     assert len(dataset) == 606
     for i in range(3):

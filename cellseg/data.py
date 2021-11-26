@@ -120,6 +120,7 @@ class CellTrainDataset(Dataset):
         img_dir: str = "/store/train",
         train_csv: str = "/store/train.csv",
         transform: Optional[Callable] = None,
+        smallest_area: int = 0,
     ) -> None:
         self.img_dir = img_dir
         df = pd.read_csv(train_csv)
@@ -129,6 +130,7 @@ class CellTrainDataset(Dataset):
             [df[df["id"] == id].iloc[0]["cell_type"] for id in self.indecies]
         )
         self.transform = ToTensorV2() if transform is None else transform
+        self.smallest_area = smallest_area
 
     def __len__(self) -> int:
         return len(self.indecies)
@@ -149,7 +151,7 @@ class CellTrainDataset(Dataset):
         )
         image = transformed["image"] / 255
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
-        empty_filter = masks.sum(dim=[1, 2]) > 0
+        empty_filter = masks.sum(dim=[1, 2]) > self.smallest_area
         masks = masks[empty_filter]
         labels = torch.from_numpy(transformed["labels"])
         labels = labels[empty_filter]

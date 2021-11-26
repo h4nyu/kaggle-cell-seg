@@ -52,6 +52,8 @@ to_masks:
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
+  smallest_area: 36
+
 criterion:
   category_weight: 1.0
   mask_weight: 1.0
