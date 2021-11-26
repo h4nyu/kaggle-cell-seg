@@ -73,8 +73,7 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                # A.RandomScale(scale_limit=(0.95, 1.05)),
-                # A.CropNonEmptyMaskIfExists(width=size, height=size, p=1.0),
+                A.RandomScale(scale_limit=(0.97, 1.03)),
                 A.RandomCrop(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
@@ -126,9 +125,7 @@ class CellTrainDataset(Dataset):
         df = pd.read_csv(train_csv)
         self.df = df
         self.indecies = self.df["id"].unique()
-        self.stratums = LabelEncoder().fit_transform(
-            [df[df["id"] == id].iloc[0]["cell_type"] for id in self.indecies]
-        )
+        self.stratums = df.groupby('id').count()['sample_id']
         self.transform = ToTensorV2() if transform is None else transform
         self.smallest_area = smallest_area
 
