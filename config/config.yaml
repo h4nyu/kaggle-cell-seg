@@ -44,8 +44,8 @@ mask_ap:
 
 to_masks:
   patch_size: *patch_size
-  category_threshold: 0.7
-  mask_threshold: 0.7
+  category_threshold: 0.5
+  mask_threshold: 0.6
   kernel_size: 3
   use_nms: false
 

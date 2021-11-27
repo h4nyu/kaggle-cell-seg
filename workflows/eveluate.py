@@ -36,7 +36,7 @@ from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
 
-@hydra.main(config_path="/app/config", config_name="config.next")
+@hydra.main(config_path="/app/config", config_name="config")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
@@ -51,7 +51,7 @@ def main(cfg: DictConfig) -> None:
     batch_adaptor = BatchAdaptor(
         num_classes=cfg.num_classes,
         grid_size=cfg.model.grid_size,
-        original_size=cfg.patch_size,
+        patch_size=cfg.patch_size,
     )
     to_masks = ToMasks(**cfg.to_masks)
     inference_step = PatchInferenceStep(

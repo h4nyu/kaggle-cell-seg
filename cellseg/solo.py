@@ -568,9 +568,9 @@ class PatchInferenceStep:
             pred_mask_batch = []
             pred_label_batch = []
             for patches in patch_batch:
-                pred_category_grids, pred_all_masks = self.model(patches)
+                pred_category_grids, pred_size_grids, pred_all_masks = self.model(patches)
                 patch_mask_batch, patch_label_batch, patch_score_batch = self.to_masks(
-                    pred_category_grids, pred_all_masks
+                    pred_category_grids, pred_size_grids, pred_all_masks
                 )
                 pred_masks = self.merge_masks(patch_mask_batch, patch_grid)[:, :h, :w]
                 pred_mask_batch.append(pred_masks)
