@@ -6,7 +6,7 @@ from .heads import Head
 from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
-from torchvision.ops import masks_to_boxes, box_convert
+from torchvision.ops import masks_to_boxes, box_convert, roi_align
 from .utils import grid, draw_save, ToPatches, MergePatchedMasks
 from .backbones import FPNLike
 
@@ -84,3 +84,107 @@ class CenterMask(nn.Module):
         mask_grids = self.mask_head(category_feats)
         sliency_masks = self.sliency_head(features)
         return (category_grids, size_grids, offset_grids, mask_grids, sliency_masks)
+
+
+class BatchAdaptor:
+    def __init__(
+        self,
+        num_classes: int,
+        grid_size: int,
+        mask_size: int,
+        patch_size: int,
+    ) -> None:
+        self.grid_size = grid_size
+        self.num_classes = num_classes
+        self.mask_size = mask_size
+        self.patch_size = patch_size
+        self.reduction = patch_size // grid_size
+        self.mask_area = mask_size ** 2
+
+    def mkgrid(
+        self,
+        masks: Tensor,
+        labels: Tensor,
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        device = masks.device
+        category_grid = torch.zeros(
+            self.num_classes, self.grid_size, self.grid_size, dtype=torch.float
+        ).to(device)
+        size_grid = torch.zeros(
+            2, self.grid_size, self.grid_size, dtype=torch.float
+        ).to(device)
+        offset_grid = torch.zeros(
+            2, self.grid_size, self.grid_size, dtype=torch.float
+        ).to(device)
+        mask_grid = torch.zeros(
+            self.mask_size ** 2, self.grid_size, self.grid_size, dtype=torch.float
+        ).to(device)
+        sliency_mask = torch.zeros(
+            self.mask_size ** 2, self.grid_size, self.patch_size, dtype=torch.float
+        ).to(device)
+        pos_mask = torch.zeros(1, self.grid_size, self.grid_size, dtype=torch.bool).to(
+            device
+        )
+        if len(masks) == 0:
+            return (
+                category_grid,
+                size_grid,
+                offset_grid,
+                mask_grid,
+                sliency_mask,
+                pos_mask,
+            )
+
+        boxes = masks_to_boxes(masks)
+        cxcy_boxes = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
+        for mask, label, box, cxcywh in zip(masks, labels, boxes.long(), cxcy_boxes):
+            cxcy_index = (cxcywh[:2] / self.reduction).long()
+            category_grid[label, cxcy_index[1], cxcy_index[0]] = 1
+            size_grid[:, cxcy_index[1], cxcy_index[0]] = cxcywh[2:]
+            offset_grid[:, cxcy_index[1], cxcy_index[0]] = (
+                cxcywh[:2] / self.reduction - cxcy_index
+            )
+            mask_grid[:, cxcy_index[1], cxcy_index[0]] = F.interpolate(
+                mask[box[1] : box[3], box[0] : box[2]]
+                .view(1, 1, cxcywh[3].long(), cxcywh[2].long())
+                .float(),
+                size=(self.mask_size, self.mask_size),
+            ).view(self.mask_area)
+        sliency_mask = masks.sum(dim=0).view(1, self.patch_size, self.patch_size)
+        pos_mask = (
+            category_grid.sum(dim=0).view(1, self.grid_size, self.grid_size).bool()
+        )
+        size_grid = size_grid / self.patch_size
+        return category_grid, size_grid, offset_grid, mask_grid, sliency_mask, pos_mask
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        mask_batch: list[Tensor],
+        label_batch: list[Tensor],
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        cate_grids: list[Tensor] = []
+        size_grids: list[Tensor] = []
+        offset_grids: list[Tensor] = []
+        mask_grids: list[Tensor] = []
+        sliency_masks: list[Tensor] = []
+        pos_masks: list[Tensor] = []
+        for masks, labels in zip(mask_batch, label_batch):
+            cate, size, offset, mask, sliency, pos = self.mkgrid(
+                masks=masks,
+                labels=labels,
+            )
+            cate_grids.append(cate)
+            size_grids.append(size)
+            offset_grids.append(offset)
+            mask_grids.append(mask)
+            sliency_masks.append(sliency)
+            pos_masks.append(pos)
+        return (
+            torch.stack(cate_grids),
+            torch.stack(size_grids),
+            torch.stack(offset_grids),
+            torch.stack(mask_grids),
+            torch.stack(sliency_masks),
+            torch.stack(pos_masks),
+        )
