@@ -1,4 +1,4 @@
-name: solo-baseline-patch-crop-b0-16-64
+name: solo-baseline-patch-crop-offset-b0-16-64
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -44,10 +44,10 @@ mask_ap:
 
 to_masks:
   patch_size: *patch_size
-  category_threshold: 0.5
-  mask_threshold: 0.6
+  category_threshold: 0.6
+  mask_threshold: 0.85
   kernel_size: 3
-  use_nms: false
+  use_nms: true
   use_crop: true
 
 dataset:

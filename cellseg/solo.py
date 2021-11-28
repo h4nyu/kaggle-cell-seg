@@ -37,7 +37,7 @@ class ToCategoryGrid:
             self.num_classes, self.grid_size, self.grid_size, dtype=torch.float
         ).to(device)
         size_grid = torch.zeros(
-            2, self.grid_size, self.grid_size, dtype=torch.float
+            4, self.grid_size, self.grid_size, dtype=torch.float
         ).to(device)
         matched = torch.zeros(0, 2).long().to(device)
         pos_mask = torch.zeros(
@@ -46,10 +46,10 @@ class ToCategoryGrid:
         if len(masks) == 0:
             return category_grid, size_grid, matched, pos_mask
         boxes = box_convert(masks_to_boxes(masks), in_fmt="xyxy", out_fmt="cxcywh")
-        cx, cy = (boxes[:, :2] / self.reduction).long().unbind(-1)
+        cxcy_index = (boxes[:, :2] / self.reduction).long()
 
         mask_index = torch.arange(len(boxes)).to(device)
-        position_index = cy * self.grid_size + cx
+        position_index = cxcy_index[:,1] * self.grid_size + cxcy_index[:, 0]
         matched = torch.stack([position_index, mask_index], dim=1)
 
         category_flattend = category_grid.view(-1)
@@ -59,9 +59,12 @@ class ToCategoryGrid:
             self.num_classes, self.grid_size, self.grid_size
         )
 
-        for wh, cx, cy in zip(boxes[:, 2:] / self.patch_size, cx, cy):
-            size_grid[:, cy, cx] = wh
-
+        offset_and_wh = torch.cat([
+            boxes[:, 2:] / self.patch_size,
+            (boxes[:, :2] / self.reduction) - cxcy_index,
+        ], dim=1)
+        for r, index in zip(offset_and_wh, cxcy_index):
+            size_grid[:, index[1], index[0]] = r
         pos_mask = category_grid.sum(dim=0).bool().view(1, self.grid_size, self.grid_size)
         return category_grid, size_grid, matched, pos_mask
 
@@ -162,8 +165,8 @@ class Criterion:
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
         mask_loss = torch.tensor(0.0).to(device)
         size_loss = self.size_loss(
-            pred_size_grid.masked_select(pos_masks.expand(pred_size_grid.shape)),
-            gt_size_grid.masked_select(pos_masks.expand(gt_size_grid.shape)),
+            pred_size_grid.masked_select(pos_masks),
+            gt_size_grid.masked_select(pos_masks),
         )
         for gt_masks, mask_index, pred_masks in zip(
             gt_mask_batch, mask_index_batch, all_masks
@@ -208,7 +211,7 @@ class Solo(nn.Module):
 
         self.size_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=2,
+            num_classes=4,
             channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
@@ -365,9 +368,12 @@ class ToMasks:
             cxcy = all_cxcy[filterd]
             scores = category_grids[batch_idx, labels, cxcy[:, 1], cxcy[:, 0]]
             box_sizes = (
-                size_grids[batch_idx, :, cxcy[:, 1], cxcy[:, 0]].t() * self.patch_size
+                size_grids[batch_idx, :2, cxcy[:, 1], cxcy[:, 0]].t() * self.patch_size
             )
-            cxcywh = torch.cat([cxcy * reduction, box_sizes], dim=1)
+            cxcy_offsets = (
+                size_grids[batch_idx, 2:, cxcy[:, 1], cxcy[:, 0]].t()
+            )
+            cxcywh = torch.cat([(cxcy + cxcy_offsets) * reduction, box_sizes], dim=1)
             boxes = (
                 box_convert(cxcywh, in_fmt="cxcywh", out_fmt="xyxy")
                 .round()

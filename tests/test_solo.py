@@ -56,17 +56,17 @@ def test_category_adaptor() -> None:
         labels=labels,
     )
     assert category_grid.shape == (num_classes, grid_size, grid_size)
-    assert size_grid.shape == (2, grid_size, grid_size)
+    assert size_grid.shape == (4, grid_size, grid_size)
     assert pos_mask.shape == (1, grid_size, grid_size)
     assert pos_mask.dtype == torch.bool
     assert category_grid.sum() == len(matched)
     assert category_grid[0, 1, 0] == 1
     assert category_grid[0, 3, 2] == 1
     assert size_grid.masked_select(pos_mask).tolist() == [
-        1.0 / patch_size, 2.0 / patch_size, 4.0 / patch_size, 4.0 / patch_size
+        1.0 / patch_size, 2.0 / patch_size, 4.0 / patch_size, 4.0 / patch_size, 0.75,  0.0, 0.0, 0.0
     ]
-    assert size_grid[:, 1, 0].tolist() == [1.0 / patch_size, 4.0 / patch_size]
-    assert size_grid[:, 3, 2].tolist() == [2.0 / patch_size, 4.0 / patch_size]
+    assert size_grid[:2, 1, 0].tolist() == [1.0 / patch_size, 4.0 / patch_size]
+    assert size_grid[:2, 3, 2].tolist() == [2.0 / patch_size, 4.0 / patch_size]
     assert matched.tolist() == [[1 * grid_size + 0, 0], [3 * grid_size + 2, 1]]
 
 
@@ -98,7 +98,7 @@ def test_to_masks() -> None:
     patch_size = 8
     gt_masks = torch.zeros(2, patch_size, patch_size).bool()
     labels = torch.zeros(len(gt_masks))
-    gt_masks[0, 0:3, 1:4] = True
+    gt_masks[0, 0:4, 1:4] = True
     gt_masks[1, 3:6, 3:6] = True
 
     ba = BatchAdaptor(
