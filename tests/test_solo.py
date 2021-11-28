@@ -155,7 +155,8 @@ def test_solo() -> None:
         category_feat_range=category_feat_range,
         mask_feat_range=mask_feat_range,
     )
-    category_grid, all_masks = solo(image_batch)
+    category_grid, size_grid, all_masks = solo(image_batch)
+    assert size_grid.shape == (1, 4, grid_size, grid_size)
     assert category_grid.shape == (1, num_classes, grid_size, grid_size)
     assert all_masks.shape == (1, grid_size ** 2, *image_batch.shape[2:])
 
