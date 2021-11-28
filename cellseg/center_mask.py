@@ -188,3 +188,59 @@ class BatchAdaptor:
             torch.stack(sliency_masks),
             torch.stack(pos_masks),
         )
+
+
+class Criterion:
+    def __init__(
+        self,
+        mask_weight: float = 1.0,
+        sliency_weight: float = 1.0,
+        category_weight: float = 1.0,
+        size_weight: float = 1.0,
+        offset_weight: float = 1.0,
+    ) -> None:
+        self.category_loss = FocalLoss()
+        self.size_loss = nn.MSELoss()
+        self.offset_loss = nn.MSELoss()
+        self.mask_loss = FocalLoss()
+        self.sliency_loss = FocalLoss()
+        self.category_weight = category_weight
+        self.mask_weight = mask_weight
+        self.size_weight = size_weight
+        self.offset_weight = offset_weight
+        self.sliency_weight = sliency_weight
+
+    def __call__(
+        self,
+        inputs: tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        targets: tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor],
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        (
+            pred_category_grids,
+            pred_size_grids,
+            pred_offset_grids,
+            pred_mask_grids,
+            pred_sliency_masks,
+        ) = inputs
+        (
+            gt_category_grids,
+            gt_size_grids,
+            gt_offset_grids,
+            gt_mask_grids,
+            gt_sliency_masks,
+            pos_masks,
+        ) = targets
+        device = pred_category_grids.device
+        category_loss = self.category_loss(pred_category_grids, gt_category_grids)
+        size_loss = self.size_loss(pred_size_grids, gt_size_grids)
+        offset_loss = self.offset_loss(pred_offset_grids, gt_offset_grids)
+        mask_loss = self.mask_loss(pred_mask_grids, gt_mask_grids)
+        sliency_loss = self.sliency_loss(pred_size_grids, gt_size_grids)
+        loss = (
+            self.category_weight * category_loss
+            + self.size_weight * size_loss
+            + self.offset_weight * offset_loss
+            + self.mask_weight * mask_loss
+            + self.sliency_weight * sliency_loss
+        )
+        return loss, category_loss, size_loss, offset_loss, mask_loss, sliency_loss
