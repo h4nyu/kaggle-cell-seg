@@ -86,8 +86,8 @@ def test_batch_adaptor() -> None:
         label_batch=label_batch,
     )
     assert category_grids.shape == (batch_size, num_classes, grid_size, grid_size)
-    assert pos_masks.shape == (batch_size, grid_size, grid_size)
-    assert size_grids.shape == (batch_size, 2, grid_size, grid_size)
+    assert pos_masks.shape == (batch_size, 1, grid_size, grid_size)
+    assert size_grids.shape == (batch_size, 4, grid_size, grid_size)
     assert len(index_batch) == batch_size
     for index, masks in zip(index_batch, mask_batch):
         assert index.shape[0] == masks.shape[0]
