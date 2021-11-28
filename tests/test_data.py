@@ -3,12 +3,12 @@ import itertools
 from cellseg.data import (
     decode_rle_mask,
     get_masks,
-    draw_save,
     CellTrainDataset,
     Tranform,
     TrainTranform,
     inv_normalize,
 )
+from cellseg.utils import draw_save
 from hydra import compose, initialize
 import pandas as pd
 from torchvision.io import read_image
@@ -52,17 +52,29 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
         )
         img = read_image(os.path.join(cfg.data.train_images_path, f"{image_id}.png"))
         draw_save(
-            os.path.join(cfg.data.root_path, f"test-plot-{image_id}-{cell_type}.png"),
+            f"/app/test_outputs/test-plot-{image_id}-{cell_type}.png",
             img / 255,
             masks=masks,
         )
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
-def test_cell_train_aug() -> None:
-    transform = TrainTranform(original_size=cfg.original_size)
+@pytest.mark.parametrize(
+    "size, smallest_area",
+    [
+        (128, 36),
+        (128, 64),
+        (128, 81),
+        (192, 36),
+        (192, 64),
+        (192, 81),
+    ],
+)
+def test_cell_train_aug(size: int, smallest_area: int) -> None:
+    transform = TrainTranform(size=size)
     dataset = CellTrainDataset(
         transform=transform,
+        smallest_area=smallest_area,
     )
     assert len(dataset) == 606
     for i in range(3):
@@ -71,17 +83,22 @@ def test_cell_train_aug() -> None:
         image = sample["image"]
         masks = sample["masks"]
         labels = sample["labels"]
-        draw_save(f"/store/test-cell-train-{i}.png", image, masks)
-        assert image.shape == (3, cfg.original_size, cfg.original_size)
+        draw_save(
+            f"/app/test_outputs/test-cell-train-{i}-{size}-{smallest_area}.png",
+            image,
+            masks,
+        )
+        assert image.shape == (3, size, size)
         assert image.shape[1:] == masks.shape[1:]
         assert labels.shape[0] == masks.shape[0]
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
 def test_cell_validation() -> None:
-    transform = Tranform(original_size=cfg.original_size)
+    transform = Tranform(size=cfg.patch_size)
     dataset = CellTrainDataset(
         transform=transform,
+        **cfg.dataset,
     )
     assert len(dataset) == 606
     sample = dataset[1]
@@ -90,6 +107,6 @@ def test_cell_validation() -> None:
     masks = sample["masks"]
     labels = sample["labels"]
     draw_save(f"/store/test-cell-validation.png", image, masks)
-    assert image.shape == (3, cfg.original_size, cfg.original_size)
+    assert image.shape == (3, cfg.size, cfg.size)
     assert image.shape[1:] == masks.shape[1:]
     assert labels.shape[0] == masks.shape[0]

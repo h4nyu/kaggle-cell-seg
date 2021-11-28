@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.loss import FocalLoss, DiceLoss
+from cellseg.loss import DiceLoss, FocalLoss
 
 
 @pytest.mark.parametrize(

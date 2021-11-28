@@ -2,9 +2,8 @@ from typing import Optional
 import numpy as np
 import torch
 from torch import Tensor
-from torchvision.utils import draw_segmentation_masks
+
 import torchvision.transforms.functional as F
-from torchvision.utils import draw_segmentation_masks, save_image
 import pandas as pd
 from typing import TypedDict, Optional, cast, Callable, Any, Union
 from albumentations.pytorch.transforms import ToTensorV2
@@ -49,39 +48,6 @@ def get_masks(
     return masks
 
 
-def draw_save(
-    path: str,
-    image: Tensor,
-    masks: Optional[Tensor] = None,
-) -> None:
-    image = image.to("cpu")
-    if image.shape[0] == 1:
-        image = image.expand(3, -1, -1)
-    if masks is not None:
-        masks = masks.to("cpu")
-        plot = (
-            draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
-            / 255
-        )
-    else:
-        plot = image
-    save_image(plot, path)
-
-
-class ToDevice:
-    def __init__(
-        self,
-        device: str,
-    ) -> None:
-        self.device = device
-
-    def __call__(self, *args: Union[Tensor, list[Tensor]]) -> Any:
-        return tuple(
-            [i.to(self.device) for i in x] if isinstance(x, list) else x.to(self.device)
-            for x in args
-        )
-
-
 TrainItem = TypedDict(
     "TrainItem",
     {
@@ -101,37 +67,14 @@ inv_normalize = A.Normalize(
 
 
 class TrainTranform:
-    def __init__(self, original_size: int):
+    def __init__(self, size: int):
 
         self.transform = A.Compose(
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                A.Rotate([15, 15], p=1),
-                A.OneOf(
-                    [
-                        A.Affine(mode=2),
-                        A.GridDistortion(p=0.3),
-                    ]
-                ),
-                A.OneOf(
-                    [
-                        A.Resize(
-                            width=original_size,
-                            height=original_size,
-                            interpolation=cv2.INTER_LINEAR,
-                            p=0.2,
-                        ),
-                        A.RandomResizedCrop(
-                            width=original_size,
-                            height=original_size,
-                            scale=[0.8, 1.0],
-                            ratio=[0.5, 1.5],
-                            p=0.8,
-                        ),
-                    ],
-                    p=1.0,
-                ),
+                A.RandomScale(scale_limit=(0.1, 0.1)),
+                A.RandomCrop(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
         )
@@ -141,16 +84,12 @@ class TrainTranform:
 
 
 class Tranform:
-    def __init__(self, original_size: int):
+    def __init__(self, size: int):
 
         self.transform = A.Compose(
             [
-                A.Resize(
-                    width=original_size,
-                    height=original_size,
-                    interpolation=cv2.INTER_LINEAR,
-                    p=1,
-                ),
+                # A.CropNonEmptyMaskIfExists(width=size, height=size, p=1.0),
+                A.RandomCrop(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
         )
@@ -180,15 +119,15 @@ class CellTrainDataset(Dataset):
         img_dir: str = "/store/train",
         train_csv: str = "/store/train.csv",
         transform: Optional[Callable] = None,
+        smallest_area: int = 0,
     ) -> None:
         self.img_dir = img_dir
         df = pd.read_csv(train_csv)
         self.df = df
         self.indecies = self.df["id"].unique()
-        self.stratums = LabelEncoder().fit_transform(
-            [df[df["id"] == id].iloc[0]["cell_type"] for id in self.indecies]
-        )
+        self.stratums = df.groupby("id").count()["sample_id"]
         self.transform = ToTensorV2() if transform is None else transform
+        self.smallest_area = smallest_area
 
     def __len__(self) -> int:
         return len(self.indecies)
@@ -209,7 +148,7 @@ class CellTrainDataset(Dataset):
         )
         image = transformed["image"] / 255
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
-        empty_filter = masks.sum(dim=[1, 2]) > 0
+        empty_filter = masks.sum(dim=[1, 2]) > self.smallest_area
         masks = masks[empty_filter]
         labels = torch.from_numpy(transformed["labels"])
         labels = labels[empty_filter]

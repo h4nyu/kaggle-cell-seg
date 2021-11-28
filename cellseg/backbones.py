@@ -1,6 +1,15 @@
 import torch.nn as nn
 from torch import Tensor
 from efficientnet_pytorch import EfficientNet
+from typing import Protocol
+
+
+class FPNLike(Protocol):
+    channels: list[int]
+    reductions: list[int]
+
+    def __call__(self, x: Tensor) -> list[Tensor]:
+        ...
 
 
 efficientnet_channels = {
