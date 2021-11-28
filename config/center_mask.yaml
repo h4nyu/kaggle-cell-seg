@@ -6,7 +6,10 @@ seed: &seed 0
 log_keys:
   - loss
   - category_loss
+  - size_loss
+  - offset_loss
   - mask_loss
+  - sliency_loss
 
 root_path: &root_path /store
 
