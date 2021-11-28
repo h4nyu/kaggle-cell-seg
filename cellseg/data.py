@@ -73,8 +73,9 @@ class TrainTranform:
             [
                 A.Flip(),
                 A.RandomRotate90(),
-                A.RandomScale(scale_limit=(0.1, 0.1)),
-                A.RandomCrop(width=size, height=size, p=1.0),
+                # A.RandomScale(scale_limit=(0.1, 0.1)),
+                # A.RandomCrop(width=size, height=size, p=1.0),
+                A.Resize(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
         )
@@ -89,7 +90,8 @@ class Tranform:
         self.transform = A.Compose(
             [
                 # A.CropNonEmptyMaskIfExists(width=size, height=size, p=1.0),
-                A.RandomCrop(width=size, height=size, p=1.0),
+                # A.RandomCrop(width=size, height=size, p=1.0),
+                A.Resize(width=size, height=size, p=1.0),
                 ToTensorV2(),
             ]
         )
@@ -150,7 +152,7 @@ class CellTrainDataset(Dataset):
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
         empty_filter = masks.sum(dim=[1, 2]) > self.smallest_area
         masks = masks[empty_filter]
-        labels = torch.from_numpy(transformed["labels"])
+        labels = torch.from_numpy(transformed["labels"]).long()
         labels = labels[empty_filter]
         return dict(
             id=image_id,

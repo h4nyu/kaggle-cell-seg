@@ -123,7 +123,7 @@ class BatchAdaptor:
             self.mask_size ** 2, self.grid_size, self.grid_size, dtype=torch.float
         ).to(device)
         sliency_mask = torch.zeros(
-            self.mask_size ** 2, self.grid_size, self.patch_size, dtype=torch.float
+            1, self.patch_size, self.patch_size, dtype=torch.float
         ).to(device)
         pos_mask = torch.zeros(1, self.grid_size, self.grid_size, dtype=torch.bool).to(
             device
@@ -153,7 +153,7 @@ class BatchAdaptor:
                 .float(),
                 size=(self.mask_size, self.mask_size),
             ).view(self.mask_area)
-        sliency_mask = masks.sum(dim=0).view(1, self.patch_size, self.patch_size)
+        sliency_mask = masks.sum(dim=0).view(1, self.patch_size, self.patch_size).bool()
         pos_mask = (
             category_grid.sum(dim=0).view(1, self.grid_size, self.grid_size).bool()
         )
@@ -235,9 +235,18 @@ class Criterion:
         ) = targets
         device = pred_category_grids.device
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
-        size_loss = self.size_loss(pred_size_grids, gt_size_grids)
-        offset_loss = self.offset_loss(pred_offset_grids, gt_offset_grids)
-        mask_loss = self.mask_loss(pred_mask_grids, gt_mask_grids)
+        size_loss = self.size_loss(
+            pred_size_grids.masked_select(pos_masks),
+            gt_size_grids.masked_select(pos_masks),
+        )
+        offset_loss = self.offset_loss(
+            pred_offset_grids.masked_select(pos_masks),
+            gt_offset_grids.masked_select(pos_masks),
+        )
+        mask_loss = self.mask_loss(
+            pred_mask_grids.masked_select(pos_masks),
+            gt_mask_grids.masked_select(pos_masks),
+        )
         sliency_loss = self.sliency_loss(pred_size_grids, gt_size_grids)
         loss = (
             self.category_weight * category_loss
@@ -276,7 +285,7 @@ class ToMasks:
         device = category_grids.device
         batch_size, _, grid_size = category_grids.shape[:3]
         patch_size = sliency_masks.shape[2]
-        mask_size = int(math.log2(mask_grids.shape[1]))
+        mask_size = int(math.sqrt(mask_grids.shape[1]))
         reduction = patch_size // grid_size
         category_grids = category_grids * (
             (category_grids > self.category_threshold)
@@ -385,7 +394,14 @@ class TrainStep:
                 pred_mask_grids,
                 pred_sliency_masks,
             ) = self.model(images)
-            loss, category_loss, size_loss, offset_loss, mask_loss, sliency_loss = self.criterion(
+            (
+                loss,
+                category_loss,
+                size_loss,
+                offset_loss,
+                mask_loss,
+                sliency_loss,
+            ) = self.criterion(
                 (
                     pred_category_grids,
                     pred_size_grids,
@@ -437,6 +453,7 @@ class TrainStep:
             sliency_loss=sliency_loss.item(),
         )
 
+
 class ValidationStep:
     def __init__(
         self,
@@ -473,7 +490,14 @@ class ValidationStep:
             pred_mask_grids,
             pred_sliency_masks,
         ) = self.model(images)
-        loss, category_loss, size_loss, offset_loss, mask_loss, sliency_loss = self.criterion(
+        (
+            loss,
+            category_loss,
+            size_loss,
+            offset_loss,
+            mask_loss,
+            sliency_loss,
+        ) = self.criterion(
             (
                 pred_category_grids,
                 pred_size_grids,

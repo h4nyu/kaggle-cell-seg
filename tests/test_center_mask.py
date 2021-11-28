@@ -1,5 +1,5 @@
 import torch
-from cellseg.center_mask import CenterMask, BatchAdaptor, ToMasks
+from cellseg.center_mask import CenterMask, BatchAdaptor, ToMasks, TrainStep
 from cellseg.backbones import EfficientNetFPN
 
 

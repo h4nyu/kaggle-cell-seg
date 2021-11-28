@@ -1,0 +1,78 @@
+name: center_mask-baseline-patch-b0-512-64
+use_amp: true
+num_epochs: 100
+device: cuda
+seed: &seed 0 
+log_keys:
+  - loss
+  - category_loss
+  - mask_loss
+
+root_path: &root_path /store
+
+num_classes: 1
+patch_size: 512
+grid_size: 64
+mask_size: 16
+
+# model
+category_feat_range: [3, 6]
+hidden_channels: 64
+
+
+# to masks
+category_threshold: 0.7
+mask_threshold: 0.75
+
+data:
+  root_path: *root_path
+  train_file_path: /store/train.csv
+  train_images_path: /store/train
+  cell_types:
+    - shsy5y 
+    - astro 
+    - cort
+
+fold:
+  index: 0
+  n_splits: 6
+  seed: *seed
+
+backbone:
+  name: "efficientnet-b0"
+
+mask_ap:
+  reduce_size: 8
+  use_batch: true
+  # thresholds:
+  #   - 0.7
+
+
+dataset:
+  img_dir: /store/train
+  train_csv: /store/train.csv
+  smallest_area: 81
+criterion:
+  category_weight: 1.0
+  mask_weight: 2.0
+
+optimizer:
+  lr: 1e-4
+
+scheduler:
+  mode: min
+  factor: 0.5
+  patience: 10
+  threshold: 0.0001
+  threshold_mode: abs
+
+train_loader:
+  batch_size: 16
+  shuffle: true
+  num_workers: 4
+  drop_last: true
+
+validation_loader:
+  batch_size: 16
+  shuffle: false
+  num_workers: 4
