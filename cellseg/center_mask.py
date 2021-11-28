@@ -20,8 +20,7 @@ class CenterMask(nn.Module):
         backbone: FPNLike,
         hidden_channels: int,
         mask_size: int,
-        category_feat_range: tuple[int, int],
-        num_classes: int = 1,
+        category_feat_range: tuple[int, int], num_classes: int = 1,
     ) -> None:
         super().__init__()
         self.category_feat_range = category_feat_range
