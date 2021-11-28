@@ -31,7 +31,9 @@ class ToCategoryGrid:
         self,
         masks: Tensor,
         labels: Tensor,
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:  # category_grid, size_grid, matched, pos_mask
+    ) -> tuple[
+        Tensor, Tensor, Tensor, Tensor
+    ]:  # category_grid, size_grid, matched, pos_mask
         device = masks.device
         category_grid = torch.zeros(
             self.num_classes, self.grid_size, self.grid_size, dtype=torch.float
@@ -40,16 +42,16 @@ class ToCategoryGrid:
             4, self.grid_size, self.grid_size, dtype=torch.float
         ).to(device)
         matched = torch.zeros(0, 2).long().to(device)
-        pos_mask = torch.zeros(
-            1, self.grid_size, self.grid_size, dtype=torch.bool
-        ).to(device)
+        pos_mask = torch.zeros(1, self.grid_size, self.grid_size, dtype=torch.bool).to(
+            device
+        )
         if len(masks) == 0:
             return category_grid, size_grid, matched, pos_mask
         boxes = box_convert(masks_to_boxes(masks), in_fmt="xyxy", out_fmt="cxcywh")
         cxcy_index = (boxes[:, :2] / self.reduction).long()
 
         mask_index = torch.arange(len(boxes)).to(device)
-        position_index = cxcy_index[:,1] * self.grid_size + cxcy_index[:, 0]
+        position_index = cxcy_index[:, 1] * self.grid_size + cxcy_index[:, 0]
         matched = torch.stack([position_index, mask_index], dim=1)
 
         category_flattend = category_grid.view(-1)
@@ -59,13 +61,18 @@ class ToCategoryGrid:
             self.num_classes, self.grid_size, self.grid_size
         )
 
-        offset_and_wh = torch.cat([
-            boxes[:, 2:] / self.patch_size,
-            (boxes[:, :2] / self.reduction) - cxcy_index,
-        ], dim=1)
+        offset_and_wh = torch.cat(
+            [
+                boxes[:, 2:] / self.patch_size,
+                (boxes[:, :2] / self.reduction) - cxcy_index,
+            ],
+            dim=1,
+        )
         for r, index in zip(offset_and_wh, cxcy_index):
             size_grid[:, index[1], index[0]] = r
-        pos_mask = category_grid.sum(dim=0).bool().view(1, self.grid_size, self.grid_size)
+        pos_mask = (
+            category_grid.sum(dim=0).bool().view(1, self.grid_size, self.grid_size)
+        )
         return category_grid, size_grid, matched, pos_mask
 
 
@@ -133,7 +140,12 @@ class BatchAdaptor:
             size_grids.append(size_grid)
             mask_index_batch.append(mask_index)
             pos_masks.append(pos_mask)
-        return torch.stack(cate_grids), torch.stack(size_grids), mask_index_batch, torch.stack(pos_masks)
+        return (
+            torch.stack(cate_grids),
+            torch.stack(size_grids),
+            mask_index_batch,
+            torch.stack(pos_masks),
+        )
 
 
 class Criterion:
@@ -160,7 +172,13 @@ class Criterion:
         ],  # gt_cate_grids, gt_size_grid, ,mask_batch, mask_index_batch, pos_masks
     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         pred_category_grids, pred_size_grid, all_masks = inputs
-        gt_category_grids, gt_size_grid, gt_mask_batch, mask_index_batch, pos_masks = targets
+        (
+            gt_category_grids,
+            gt_size_grid,
+            gt_mask_batch,
+            mask_index_batch,
+            pos_masks,
+        ) = targets
         device = pred_category_grids.device
         category_loss = self.category_loss(pred_category_grids, gt_category_grids)
         mask_loss = torch.tensor(0.0).to(device)
@@ -370,9 +388,7 @@ class ToMasks:
             box_sizes = (
                 size_grids[batch_idx, :2, cxcy[:, 1], cxcy[:, 0]].t() * self.patch_size
             )
-            cxcy_offsets = (
-                size_grids[batch_idx, 2:, cxcy[:, 1], cxcy[:, 0]].t()
-            )
+            cxcy_offsets = size_grids[batch_idx, 2:, cxcy[:, 1], cxcy[:, 0]].t()
             cxcywh = torch.cat([(cxcy + cxcy_offsets) * reduction, box_sizes], dim=1)
             boxes = (
                 box_convert(cxcywh, in_fmt="cxcywh", out_fmt="xyxy")
@@ -432,9 +448,12 @@ class TrainStep:
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_label_batch = batch
-            gt_category_grids, gt_size_grids, mask_index_batch, pos_masks = self.bath_adaptor(
-                mask_batch=gt_mask_batch, label_batch=gt_label_batch
-            )
+            (
+                gt_category_grids,
+                gt_size_grids,
+                mask_index_batch,
+                pos_masks,
+            ) = self.bath_adaptor(mask_batch=gt_mask_batch, label_batch=gt_label_batch)
             pred_category_grids, pred_size_grids, pred_all_masks = self.model(images)
             loss, category_loss, size_loss, mask_loss = self.criterion(
                 (
@@ -501,9 +520,12 @@ class ValidationStep:
     ) -> dict[str, float]:  # logs
         self.model.eval()
         images, gt_mask_batch, gt_label_batch = batch
-        gt_category_grids, gt_size_grids, mask_index_batch, pos_masks = self.batch_adaptor(
-            mask_batch=gt_mask_batch, label_batch=gt_label_batch
-        )
+        (
+            gt_category_grids,
+            gt_size_grids,
+            mask_index_batch,
+            pos_masks,
+        ) = self.batch_adaptor(mask_batch=gt_mask_batch, label_batch=gt_label_batch)
         pred_category_grids, pred_size_grids, pred_all_masks = self.model(images)
         loss, category_loss, size_loss, mask_loss = self.criterion(
             (
@@ -588,7 +610,9 @@ class PatchInferenceStep:
             pred_mask_batch = []
             pred_label_batch = []
             for patches in patch_batch:
-                pred_category_grids, pred_size_grids, pred_all_masks = self.model(patches)
+                pred_category_grids, pred_size_grids, pred_all_masks = self.model(
+                    patches
+                )
                 patch_mask_batch, patch_label_batch, patch_score_batch = self.to_masks(
                     pred_category_grids, pred_size_grids, pred_all_masks
                 )

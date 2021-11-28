@@ -125,7 +125,7 @@ class CellTrainDataset(Dataset):
         df = pd.read_csv(train_csv)
         self.df = df
         self.indecies = self.df["id"].unique()
-        self.stratums = df.groupby('id').count()['sample_id']
+        self.stratums = df.groupby("id").count()["sample_id"]
         self.transform = ToTensorV2() if transform is None else transform
         self.smallest_area = smallest_area
 
