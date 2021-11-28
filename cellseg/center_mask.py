@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 from torch import Tensor
 from .heads import Head
 from typing import Protocol, TypedDict, Optional, Callable, Any
@@ -244,3 +245,99 @@ class Criterion:
             + self.sliency_weight * sliency_loss
         )
         return loss, category_loss, size_loss, offset_loss, mask_loss, sliency_loss
+
+
+class ToMasks:
+    def __init__(
+        self,
+        category_threshold: float = 0.5,
+        mask_threshold: float = 0.5,
+        kernel_size: int = 3,
+    ) -> None:
+        self.category_threshold = category_threshold
+        self.mask_threshold = mask_threshold
+        self.max_pool = nn.MaxPool2d(
+            kernel_size=kernel_size,
+            padding=kernel_size // 2,
+            stride=1,
+        )
+        ...
+
+    def __call__(
+        self,
+        category_grids: Tensor,
+        size_grids: Tensor,
+        offset_grids: Tensor,
+        mask_grids: Tensor,
+        sliency_masks: Tensor,
+    ) -> None:
+        device = category_grids.device
+        batch_size, _, grid_size = category_grids.shape[:3]
+        patch_size = sliency_masks.shape[2]
+        mask_size = int(math.log2(mask_grids.shape[1]))
+        reduction = patch_size // grid_size
+        category_grids = category_grids * (
+            (category_grids > self.category_threshold)
+            & (self.max_pool(category_grids) == category_grids)
+        )
+        (
+            batch_indecies,
+            all_labels,
+            all_cy,
+            all_cx,
+        ) = category_grids.nonzero(as_tuple=True)
+        all_cxcy = torch.stack([all_cx, all_cy], dim=1)
+        mask_batch: list[Tensor] = []
+        label_batch: list[Tensor] = []
+        score_batch: list[Tensor] = []
+        for batch_idx in range(batch_size):
+            batch_filter = batch_indecies == batch_idx
+            labels = all_labels[batch_filter]
+            cxcy_index = all_cxcy[batch_filter]
+            scores = category_grids[
+                batch_idx, labels, cxcy_index[:, 1], cxcy_index[:, 0]
+            ]
+            box_sizes = (
+                size_grids[batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]].t()
+                * patch_size
+            )
+            cxcy_offsets = offset_grids[
+                batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]
+            ].t()
+            cxcywhs = torch.cat(
+                [(cxcy_index + cxcy_offsets) * reduction, box_sizes], dim=1
+            )
+            boxes = (
+                box_convert(cxcywhs, in_fmt="cxcywh", out_fmt="xyxy")
+                .round()
+                .long()
+                .clip(min=0, max=patch_size - 1)
+            )
+            grid_masks = mask_grids[
+                batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]
+            ].t()
+            sliency_mask = sliency_masks[batch_idx]
+            masks = torch.zeros(len(boxes), patch_size, patch_size).to(device)
+            for i, (b, gm) in enumerate(zip(boxes, grid_masks)):
+                crop_mask = torch.zeros(sliency_mask.shape).to(device)
+                gm = F.interpolate(
+                    gm.view(1, 1, mask_size, mask_size),
+                    size=(
+                        b[3] - b[1] + 1,
+                        b[2] - b[0] + 1,
+                    ),
+                )
+                crop_mask[:, b[1] : b[3] + 1, b[0] : b[2] + 1] = gm.view(
+                    1, *gm.shape[2:]
+                )
+                masks[i] = sliency_mask * crop_mask
+
+            masks = masks > self.mask_threshold
+            empty_filter = masks.sum(dim=[1, 2]) > 0
+            masks = masks[empty_filter]
+            scores = scores[empty_filter]
+            labels = labels[empty_filter]
+            label_batch.append(labels)
+            mask_batch.append(masks)
+            score_batch.append(scores)
+        return mask_batch, label_batch, score_batch

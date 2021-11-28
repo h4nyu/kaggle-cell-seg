@@ -1,5 +1,5 @@
 import torch
-from cellseg.center_mask import CenterMask, BatchAdaptor
+from cellseg.center_mask import CenterMask, BatchAdaptor, ToMasks
 from cellseg.backbones import EfficientNetFPN
 
 
@@ -73,3 +73,40 @@ def test_batch() -> None:
     assert mask_grids[0, :, 3, 2].sum() != 0.0
 
     assert sliency_masks.shape == (1, 1, patch_size, patch_size)
+
+
+def test_to_masks() -> None:
+    patch_size = 16
+    num_classes = 2
+    grid_size = 8
+    mask_size = 4
+    masks = torch.zeros(2, patch_size, patch_size).bool()
+    labels = torch.zeros(len(masks)).long()
+    masks[0, 0:6, 1:3] = True
+    masks[1, 4:9, 3:6] = True
+    gt_mask_batch = [masks]
+    gt_label_batch = [labels]
+    batch_adaptor = BatchAdaptor(
+        num_classes=num_classes,
+        grid_size=grid_size,
+        patch_size=patch_size,
+        mask_size=mask_size,
+    )
+    (
+        category_grids,
+        size_grids,
+        offset_grids,
+        mask_grids,
+        sliency_masks,
+        pos_masks,
+    ) = batch_adaptor(mask_batch=gt_mask_batch, label_batch=gt_label_batch)
+    to_masks = ToMasks()
+    mask_batch, label_batch, score_batch = to_masks(
+        category_grids,
+        size_grids,
+        offset_grids,
+        mask_grids,
+        sliency_masks,
+    )
+    assert len(mask_batch) == len(label_batch) == len(score_batch) == 1
+    assert (mask_batch[0] ^ gt_mask_batch[0]).sum() == 0
