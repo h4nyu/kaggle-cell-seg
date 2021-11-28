@@ -48,6 +48,7 @@ to_masks:
   mask_threshold: 0.6
   kernel_size: 3
   use_nms: false
+  use_crop: true
 
 dataset:
   img_dir: /store/train
@@ -57,7 +58,7 @@ dataset:
 criterion:
   category_weight: 1.0
   mask_weight: 1.0
-  size_weight: 1.0
+  size_weight: 2.0
 
 optimizer:
   lr: 5e-4

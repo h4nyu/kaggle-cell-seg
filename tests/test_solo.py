@@ -51,15 +51,20 @@ def test_category_adaptor() -> None:
         grid_size=grid_size,
         patch_size=patch_size,
     )
-    category_grid, size_grid, matched = to_grid(
+    category_grid, size_grid, matched, pos_mask = to_grid(
         masks=masks,
         labels=labels,
     )
     assert category_grid.shape == (num_classes, grid_size, grid_size)
     assert size_grid.shape == (2, grid_size, grid_size)
+    assert pos_mask.shape == (1, grid_size, grid_size)
+    assert pos_mask.dtype == torch.bool
     assert category_grid.sum() == len(matched)
     assert category_grid[0, 1, 0] == 1
     assert category_grid[0, 3, 2] == 1
+    assert size_grid.masked_select(pos_mask).tolist() == [
+        1.0 / patch_size, 2.0 / patch_size, 4.0 / patch_size, 4.0 / patch_size
+    ]
     assert size_grid[:, 1, 0].tolist() == [1.0 / patch_size, 4.0 / patch_size]
     assert size_grid[:, 3, 2].tolist() == [2.0 / patch_size, 4.0 / patch_size]
     assert matched.tolist() == [[1 * grid_size + 0, 0], [3 * grid_size + 2, 1]]
@@ -76,11 +81,12 @@ def test_batch_adaptor() -> None:
         torch.ones(3, original_size, original_size),
     ]
     label_batch = [torch.zeros(len(i)) for i in mask_batch]
-    category_grids, size_grids, index_batch = a(
+    category_grids, size_grids, index_batch, pos_masks = a(
         mask_batch=mask_batch,
         label_batch=label_batch,
     )
     assert category_grids.shape == (batch_size, num_classes, grid_size, grid_size)
+    assert pos_masks.shape == (batch_size, grid_size, grid_size)
     assert size_grids.shape == (batch_size, 2, grid_size, grid_size)
     assert len(index_batch) == batch_size
     for index, masks in zip(index_batch, mask_batch):
@@ -102,7 +108,7 @@ def test_to_masks() -> None:
     )
     gt_mask_batch = [gt_masks]
     gt_label_batch = [labels]
-    category_grids, size_grids, gt_index_batch = ba(gt_mask_batch, gt_label_batch)
+    category_grids, size_grids, gt_index_batch, pos_masks = ba(gt_mask_batch, gt_label_batch)
     to_masks = ToMasks(patch_size=patch_size)
     all_masks = torch.zeros(1, grid_size * grid_size, patch_size, patch_size).bool()
 
@@ -161,6 +167,7 @@ def test_loss() -> None:
     # data adaptor outputs
     gt_category_grids = torch.zeros(batch_size, num_classes, grid_size, grid_size)
     gt_size_grids = torch.zeros(batch_size, 2, grid_size, grid_size)
+    pos_masks = torch.ones(batch_size, grid_size, grid_size, dtype=torch.bool)
     gt_mask_batch = [torch.zeros(3, original_size, original_size)]
     mask_index_batch = [torch.tensor([[0, 0], [1, 1], [2, 2]])]
 
@@ -172,6 +179,7 @@ def test_loss() -> None:
             gt_size_grids,
             gt_mask_batch,
             mask_index_batch,
+            pos_masks,
         ),
     )
     assert category_loss + mask_loss + size_loss == loss_value
@@ -233,7 +241,6 @@ def test_inference_step() -> None:
         dataset,
         collate_fn=collate_fn,
         batch_size=1,
-        # **cfg.validation_loader,
     )
     for batch in loader:
         inference_step(batch[0])
