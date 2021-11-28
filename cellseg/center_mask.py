@@ -11,6 +11,8 @@ from torchvision.ops import masks_to_boxes, box_convert, roi_align
 from .utils import grid, draw_save, ToPatches, MergePatchedMasks
 from .backbones import FPNLike
 
+Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
+
 
 class CenterMask(nn.Module):
     def __init__(
@@ -270,7 +272,7 @@ class ToMasks:
         offset_grids: Tensor,
         mask_grids: Tensor,
         sliency_masks: Tensor,
-    ) -> None:
+    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
         device = category_grids.device
         batch_size, _, grid_size = category_grids.shape[:3]
         patch_size = sliency_masks.shape[2]
@@ -341,3 +343,167 @@ class ToMasks:
             mask_batch.append(masks)
             score_batch.append(scores)
         return mask_batch, label_batch, score_batch
+
+
+class TrainStep:
+    def __init__(
+        self,
+        criterion: Criterion,
+        model: CenterMask,
+        optimizer: Any,
+        batch_adaptor: BatchAdaptor,
+        use_amp: bool = True,
+        to_masks: Optional[ToMasks] = None,
+        scheduler: Optional[Any] = None,
+    ) -> None:
+        self.criterion = criterion
+        self.model = model
+        self.batch_adaptor = batch_adaptor
+        self.optimizer = optimizer
+        self.use_amp = use_amp
+        self.scaler = GradScaler()
+        self.to_masks = to_masks
+        self.scheduler = scheduler
+
+    def __call__(self, batch: Batch) -> dict[str, float]:
+        self.model.train()
+        self.optimizer.zero_grad()
+        with autocast(enabled=self.use_amp):
+            images, gt_mask_batch, gt_label_batch = batch
+            (
+                gt_category_grids,
+                gt_size_grids,
+                gt_offset_grids,
+                gt_mask_grids,
+                gt_sliency_masks,
+                pos_masks,
+            ) = self.batch_adaptor(mask_batch=gt_mask_batch, label_batch=gt_label_batch)
+            (
+                pred_category_grids,
+                pred_size_grids,
+                pred_offset_grids,
+                pred_mask_grids,
+                pred_sliency_masks,
+            ) = self.model(images)
+            loss, category_loss, size_loss, offset_loss, mask_loss, sliency_loss = self.criterion(
+                (
+                    pred_category_grids,
+                    pred_size_grids,
+                    pred_offset_grids,
+                    pred_mask_grids,
+                    pred_sliency_masks,
+                ),
+                (
+                    gt_category_grids,
+                    gt_size_grids,
+                    gt_offset_grids,
+                    gt_mask_grids,
+                    gt_sliency_masks,
+                    pos_masks,
+                ),
+            )
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+
+            if self.scheduler is not None:
+                self.scheduler.step(loss)
+
+        if self.to_masks is not None:
+            pred_mask_batch, _, _ = self.to_masks(
+                pred_category_grids,
+                pred_size_grids,
+                pred_offset_grids,
+                pred_mask_grids,
+                pred_sliency_masks,
+            )
+            draw_save(
+                "/app/test_outputs/gt.png",
+                images[0],
+                gt_mask_batch[0],
+            )
+            draw_save(
+                "/app/test_outputs/pred.png",
+                images[0],
+                pred_mask_batch[0],
+            )
+
+        return dict(
+            loss=loss.item(),
+            category_loss=category_loss.item(),
+            size_loss=size_loss.item(),
+            offset_loss=offset_loss.item(),
+            mask_loss=mask_loss.item(),
+            sliency_loss=sliency_loss.item(),
+        )
+
+class ValidationStep:
+    def __init__(
+        self,
+        criterion: Criterion,
+        model: CenterMask,
+        batch_adaptor: BatchAdaptor,
+        to_masks: ToMasks,
+    ) -> None:
+        self.criterion = criterion
+        self.model = model
+        self.batch_adaptor = batch_adaptor
+        self.to_masks = to_masks
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        batch: Batch,
+        on_end: Optional[Callable[[list[Tensor], list[Tensor]], Any]] = None,
+    ) -> dict[str, float]:  # logs
+        self.model.eval()
+        images, gt_mask_batch, gt_label_batch = batch
+        (
+            gt_category_grids,
+            gt_size_grids,
+            gt_offset_grids,
+            gt_mask_grids,
+            gt_sliency_masks,
+            pos_masks,
+        ) = self.batch_adaptor(mask_batch=gt_mask_batch, label_batch=gt_label_batch)
+        (
+            pred_category_grids,
+            pred_size_grids,
+            pred_offset_grids,
+            pred_mask_grids,
+            pred_sliency_masks,
+        ) = self.model(images)
+        loss, category_loss, size_loss, offset_loss, mask_loss, sliency_loss = self.criterion(
+            (
+                pred_category_grids,
+                pred_size_grids,
+                pred_offset_grids,
+                pred_mask_grids,
+                pred_sliency_masks,
+            ),
+            (
+                gt_category_grids,
+                gt_size_grids,
+                gt_offset_grids,
+                gt_mask_grids,
+                gt_sliency_masks,
+                pos_masks,
+            ),
+        )
+        if on_end is not None:
+            pred_mask_batch, pred_label_batch, _ = self.to_masks(
+                pred_category_grids,
+                pred_size_grids,
+                pred_offset_grids,
+                pred_mask_grids,
+                pred_sliency_masks,
+            )
+            on_end(pred_mask_batch, gt_mask_batch)
+        return dict(
+            loss=loss.item(),
+            category_loss=category_loss.item(),
+            size_loss=size_loss.item(),
+            offset_loss=offset_loss.item(),
+            mask_loss=mask_loss.item(),
+            sliency_loss=sliency_loss.item(),
+        )
