@@ -20,7 +20,8 @@ class CenterMask(nn.Module):
         backbone: FPNLike,
         hidden_channels: int,
         mask_size: int,
-        category_feat_range: tuple[int, int], num_classes: int = 1,
+        category_feat_range: tuple[int, int],
+        num_classes: int = 1,
     ) -> None:
         super().__init__()
         self.category_feat_range = category_feat_range
@@ -271,7 +272,6 @@ class ToMasks:
             padding=kernel_size // 2,
             stride=1,
         )
-        ...
 
     def __call__(
         self,
@@ -307,15 +307,12 @@ class ToMasks:
             scores = category_grids[
                 batch_idx, labels, cxcy_index[:, 1], cxcy_index[:, 0]
             ]
-            box_sizes = (
-                size_grids[batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]].t()
-                * patch_size
-            )
+            box_sizes = size_grids[batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]].t()
             cxcy_offsets = offset_grids[
                 batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]
             ].t()
             cxcywhs = torch.cat(
-                [(cxcy_index + cxcy_offsets) * reduction, box_sizes], dim=1
+                [(cxcy_index + cxcy_offsets) * reduction, box_sizes * patch_size], dim=1
             )
             boxes = (
                 box_convert(cxcywhs, in_fmt="cxcywh", out_fmt="xyxy")
