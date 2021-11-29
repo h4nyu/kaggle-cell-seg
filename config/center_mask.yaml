@@ -24,8 +24,8 @@ hidden_channels: 64
 
 
 # to masks
-category_threshold: 0.7
-mask_threshold: 0.75
+category_threshold: 0.6
+mask_threshold: 0.5
 
 data:
   root_path: *root_path
@@ -57,10 +57,11 @@ dataset:
   smallest_area: 81
 criterion:
   category_weight: 1.0
-  mask_weight: 2.0
+  mask_weight: 1.0
+  size_weight: 2.0
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-3
 
 scheduler:
   mode: min
