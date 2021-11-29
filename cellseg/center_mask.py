@@ -203,7 +203,7 @@ class Criterion:
         offset_weight: float = 1.0,
     ) -> None:
         self.category_loss = FocalLoss()
-        self.size_loss = nn.MSELoss()
+        self.size_loss = nn.SmoothL1Loss()
         self.offset_loss = nn.MSELoss()
         self.mask_loss = FocalLoss()
         self.sliency_loss = FocalLoss()
