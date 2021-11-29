@@ -108,7 +108,7 @@ def main(cfg: DictConfig) -> None:
             train_log = train_step(batch)
             train_reduer.accumulate(train_log)
             logger.info(f"train batch {train_log} ")
-        logger.info(f"epoch train {train_reduer.value} ")
+        logger.info(f"epoch train {train_reduer.value}")
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch in val_loader:
