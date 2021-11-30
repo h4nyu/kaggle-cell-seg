@@ -29,7 +29,7 @@ class CenterMask(nn.Module):
         self.category_head = Head(
             hidden_channels=hidden_channels,
             num_classes=num_classes,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -39,7 +39,7 @@ class CenterMask(nn.Module):
         self.size_head = Head(
             hidden_channels=hidden_channels,
             num_classes=2,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -49,7 +49,7 @@ class CenterMask(nn.Module):
         self.offset_head = Head(
             hidden_channels=hidden_channels,
             num_classes=2,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -59,7 +59,7 @@ class CenterMask(nn.Module):
         self.sliency_head = Head(
             hidden_channels=hidden_channels,
             num_classes=1,
-            channels=backbone.channels,
+            channels=backbone.out_channels,
             reductions=backbone.reductions,
             use_cord=False,
         )
@@ -67,7 +67,7 @@ class CenterMask(nn.Module):
         self.mask_head = Head(
             hidden_channels=hidden_channels,
             num_classes=mask_size ** 2,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],

@@ -14,10 +14,10 @@ def test_efficient_net_fpn(name: str) -> None:
     assert (
         len(features)
         == expand_len
-        == len(backbone.channels)
+        == len(backbone.out_channels)
         == len(backbone.reductions)
     )
-    for f, s, c in zip(features, expected_sizes, backbone.channels):
+    for f, s, c in zip(features, expected_sizes, backbone.out_channels):
         assert f.size(1) == c
         assert f.shape[2] == s
         assert f.shape[3] == s

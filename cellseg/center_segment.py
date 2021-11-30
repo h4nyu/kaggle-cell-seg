@@ -195,7 +195,7 @@ class CenterSegment(nn.Module):
         self.category_head = Head(
             hidden_channels=hidden_channels,
             num_classes=num_classes,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
