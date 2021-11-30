@@ -62,12 +62,9 @@ def test_get_masks_and_plot(image_id: str, cell_type: str) -> None:
 @pytest.mark.parametrize(
     "size, smallest_area",
     [
-        (128, 36),
-        (128, 64),
-        (128, 81),
-        (192, 36),
-        (192, 64),
-        (192, 81),
+        (512, 36),
+        (512, 64),
+        (512, 81),
     ],
 )
 def test_cell_train_aug(size: int, smallest_area: int) -> None:

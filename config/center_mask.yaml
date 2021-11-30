@@ -1,4 +1,4 @@
-name: center-baseline
+name: center_mask-baseline-patch-b0-512-32
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -11,8 +11,22 @@ log_keys:
   - mask_loss
   - sliency_loss
 
-
 root_path: &root_path /store
+
+num_classes: 1
+patch_size: 512
+grid_size: 32
+mask_size: 8
+
+# model
+category_feat_range: [4, 6]
+hidden_channels: 64
+
+
+# to masks
+category_threshold: 0.6
+mask_threshold: 0.4
+
 data:
   root_path: *root_path
   train_file_path: /store/train.csv
@@ -22,50 +36,47 @@ data:
     - astro 
     - cort
 
-num_classes: &num_classes 1
-original_size: 512
-box_size: &box_size 64
 fold:
   index: 0
   n_splits: 6
   seed: *seed
 
 backbone:
-  name: "efficientnet-b1"
-
-model:
-  category_feat_range: [0, 6]
-  hidden_channels: 64
-  num_classes: *num_classes
-  box_size: *box_size
-
+  name: "efficientnet-b0"
 
 mask_ap:
-  reduce_size: 1
+  reduce_size: 8
   use_batch: true
+  # thresholds:
+  #   - 0.7
 
-
-to_masks:
-  category_threshold: 0.5
-  mask_threshold: 0.85
 
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
+  smallest_area: 81
 criterion:
   category_weight: 1.0
-  mask_weight: 0.5
-  box_size: *box_size
+  mask_weight: 1.0
+  size_weight: 10.0
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-3
+
+scheduler:
+  mode: min
+  factor: 0.5
+  patience: 10
+  threshold: 0.0001
+  threshold_mode: abs
 
 train_loader:
-  batch_size: 4 
+  batch_size: 16
   shuffle: true
-  num_workers: 5
+  num_workers: 4
+  drop_last: true
 
 validation_loader:
-  batch_size: 5
+  batch_size: 16
   shuffle: false
-  num_workers: 6
+  num_workers: 4
