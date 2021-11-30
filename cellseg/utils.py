@@ -17,6 +17,10 @@ def seed_everything(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
+def round_to(n: float, multiple: int = 8) -> int:
+    return int(round(n / multiple) * multiple)
+
+
 class ToDevice:
     def __init__(
         self,

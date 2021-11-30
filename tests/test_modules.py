@@ -1,12 +1,16 @@
 import torch
-from cellseg.modules import MaskHead
+from cellseg.blocks import ConvBnAct
 
 
-def test_mask_head() -> None:
-    in_channels = 32
-    out_channels = 16
-    size = 128
-    inputs = torch.rand(2, in_channels, size, size)
-    head = MaskHead(in_channels=in_channels, out_channels=out_channels, depth=2)
-    outs = head(inputs)
-    assert outs.shape == (2, out_channels, size * 2, size * 2)
+def test_conv_norm_act() -> None:
+    in_channels = 10
+    out_channels = 3
+    conv = ConvBnAct(
+        in_channels=in_channels,
+        out_channels=out_channels,
+    )
+    feat = torch.rand(1, in_channels, 3, 4)
+    out = conv(feat)
+    assert out.shape == (1, out_channels, 3, 4)
+
+
