@@ -26,6 +26,7 @@ from cellseg.data import (
     TrainTranform,
     Tranform,
 )
+from cellseg.necks import CSPNeck
 from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
@@ -41,8 +42,10 @@ def main(cfg: DictConfig) -> None:
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
         default_score=float("inf"),
     )
+    neck = CSPNeck(in_channels=backbone.out_channels, out_channels=backbone.out_channels, reductions=backbone.reductions)
     model = CenterMask(
         backbone=backbone,
+        neck=neck,
         mask_size=cfg.mask_size,
         hidden_channels=cfg.hidden_channels,
         category_feat_range=cfg.category_feat_range,

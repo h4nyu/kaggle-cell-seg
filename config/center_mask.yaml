@@ -1,4 +1,4 @@
-name: center_mask-baseline-patch-b0-512-32
+name: center_mask-baseline-patch-b0-neck-768-48
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -14,8 +14,8 @@ log_keys:
 root_path: &root_path /store
 
 num_classes: 1
-patch_size: 512
-grid_size: 32
+patch_size: 768
+grid_size: 48
 mask_size: 8
 
 # model
@@ -54,7 +54,7 @@ mask_ap:
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
-  smallest_area: 81
+  smallest_area: 8
 criterion:
   category_weight: 1.0
   mask_weight: 1.0
@@ -71,12 +71,12 @@ scheduler:
   threshold_mode: abs
 
 train_loader:
-  batch_size: 16
+  batch_size: 8
   shuffle: true
   num_workers: 4
   drop_last: true
 
 validation_loader:
-  batch_size: 16
+  batch_size: 8
   shuffle: false
   num_workers: 4

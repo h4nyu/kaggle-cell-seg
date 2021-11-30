@@ -10,6 +10,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import masks_to_boxes, box_convert, roi_align
 from .utils import grid, draw_save, ToPatches, MergePatchedMasks
 from .backbones import FPNLike
+from .necks import NeckLike
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
@@ -18,6 +19,7 @@ class CenterMask(nn.Module):
     def __init__(
         self,
         backbone: FPNLike,
+        neck: NeckLike,
         hidden_channels: int,
         mask_size: int,
         category_feat_range: tuple[int, int],
@@ -26,6 +28,7 @@ class CenterMask(nn.Module):
         super().__init__()
         self.category_feat_range = category_feat_range
         self.backbone = backbone
+        self.neck = neck
         self.category_head = Head(
             hidden_channels=hidden_channels,
             num_classes=num_classes,
@@ -78,6 +81,7 @@ class CenterMask(nn.Module):
         self, image_batch: Tensor
     ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         features = self.backbone(image_batch)
+        features = self.neck(features)
         category_feats = features[
             self.category_feat_range[0] : self.category_feat_range[1]
         ]

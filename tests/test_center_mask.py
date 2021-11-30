@@ -1,5 +1,6 @@
 import torch
 from cellseg.center_mask import CenterMask, BatchAdaptor, ToMasks, TrainStep
+from cellseg.necks import CSPNeck
 from cellseg.backbones import EfficientNetFPN
 
 
@@ -10,10 +11,12 @@ def test_model() -> None:
     backbone = EfficientNetFPN("efficientnet-b2")
     category_feat_range = (4, 6)
     num_classes = 2
+    neck = CSPNeck(in_channels=backbone.out_channels, out_channels=backbone.out_channels, reductions=backbone.reductions)
 
     model = CenterMask(
         hidden_channels=64,
         backbone=backbone,
+        neck=neck,
         mask_size=mask_size,
         num_classes=num_classes,
         category_feat_range=category_feat_range,

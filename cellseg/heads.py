@@ -24,9 +24,12 @@ class Head(nn.Module):
         self.use_cord = use_cord
         for idx, in_channels in enumerate(channels):
             self.in_convs.append(
-                ConvBnAct(
+                nn.Conv2d(
                     in_channels=in_channels,
                     out_channels=hidden_channels,
+                    kernel_size=1,
+                    padding=0,
+                    bias=False,
                 )
             )
 
