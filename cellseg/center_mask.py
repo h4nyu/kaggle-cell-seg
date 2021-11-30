@@ -71,7 +71,7 @@ class CenterMask(nn.Module):
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=True,
+            use_cord=False,
         )
 
     def forward(

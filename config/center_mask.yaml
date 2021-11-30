@@ -1,4 +1,4 @@
-name: center_mask-baseline-patch-b0-512-64
+name: center_mask-baseline-patch-b0-512-32
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -15,17 +15,17 @@ root_path: &root_path /store
 
 num_classes: 1
 patch_size: 512
-grid_size: 64
-mask_size: 16
+grid_size: 32
+mask_size: 8
 
 # model
-category_feat_range: [3, 6]
+category_feat_range: [4, 6]
 hidden_channels: 64
 
 
 # to masks
 category_threshold: 0.6
-mask_threshold: 0.5
+mask_threshold: 0.4
 
 data:
   root_path: *root_path
@@ -58,7 +58,7 @@ dataset:
 criterion:
   category_weight: 1.0
   mask_weight: 1.0
-  size_weight: 2.0
+  size_weight: 10.0
 
 optimizer:
   lr: 1e-3
