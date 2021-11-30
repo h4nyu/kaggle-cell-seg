@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Callable,Protocol
+from typing import Callable, Protocol
 from torch import Tensor
 from .blocks import (
     DefaultActivation,
@@ -10,6 +10,7 @@ from .blocks import (
     CSPDownBlock,
     CSPPlainBlock,
 )
+
 
 class NeckLike(Protocol):
     out_channels: list[int]

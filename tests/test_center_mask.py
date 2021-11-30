@@ -11,7 +11,11 @@ def test_model() -> None:
     backbone = EfficientNetFPN("efficientnet-b2")
     category_feat_range = (4, 6)
     num_classes = 2
-    neck = CSPNeck(in_channels=backbone.out_channels, out_channels=backbone.out_channels, reductions=backbone.reductions)
+    neck = CSPNeck(
+        in_channels=backbone.out_channels,
+        out_channels=backbone.out_channels,
+        reductions=backbone.reductions,
+    )
 
     model = CenterMask(
         hidden_channels=64,

@@ -32,7 +32,9 @@ class CenterMask(nn.Module):
         self.category_head = Head(
             hidden_channels=hidden_channels,
             num_classes=num_classes,
-            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[
+                category_feat_range[0] : category_feat_range[1]
+            ],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -42,7 +44,9 @@ class CenterMask(nn.Module):
         self.size_head = Head(
             hidden_channels=hidden_channels,
             num_classes=2,
-            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[
+                category_feat_range[0] : category_feat_range[1]
+            ],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -52,7 +56,9 @@ class CenterMask(nn.Module):
         self.offset_head = Head(
             hidden_channels=hidden_channels,
             num_classes=2,
-            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[
+                category_feat_range[0] : category_feat_range[1]
+            ],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -70,7 +76,9 @@ class CenterMask(nn.Module):
         self.mask_head = Head(
             hidden_channels=hidden_channels,
             num_classes=mask_size ** 2,
-            channels=backbone.out_channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[
+                category_feat_range[0] : category_feat_range[1]
+            ],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -152,8 +160,8 @@ class BatchAdaptor:
                 cxcywh[:2] / self.reduction - cxcy_index
             )
             mask_grid[:, cxcy_index[1], cxcy_index[0]] = F.interpolate(
-                mask[box[1] : box[3], box[0] : box[2]]
-                .view(1, 1, cxcywh[3].long(), cxcywh[2].long())
+                mask[box[1] : box[3] + 1, box[0] : box[2] + 1]
+                .view(1, 1, cxcywh[3].long() + 1, cxcywh[2].long() + 1)
                 .float(),
                 size=(self.mask_size, self.mask_size),
             ).view(self.mask_area)

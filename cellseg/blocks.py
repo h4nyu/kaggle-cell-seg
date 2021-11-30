@@ -224,7 +224,9 @@ class CSPDownBlock(nn.Module):
             stride=2,
             act=act,
         )
-        self.rcsp = ReversedCSP(out_channels+in_channels[1], out_channels, depth, act=act)
+        self.rcsp = ReversedCSP(
+            out_channels + in_channels[1], out_channels, depth, act=act
+        )
 
     def forward(self, x1: Tensor, x2: Tensor) -> Tensor:
         x1 = self.in_conv(x1)
