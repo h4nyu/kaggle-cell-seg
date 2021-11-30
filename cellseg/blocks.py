@@ -178,23 +178,53 @@ class CSPUpBlock(nn.Module):
         return self.rcsp(h)
 
 
+class CSPPlainBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: tuple[int, int],
+        out_channels: int,
+        depth: int,
+        act: Callable[[Tensor], Tensor] = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        self.in_conv1 = ConvBnAct(
+            in_channels=in_channels[0],
+            out_channels=out_channels,
+            kernel_size=1,
+            act=act,
+        )
+        self.in_conv2 = ConvBnAct(
+            in_channels=in_channels[1],
+            out_channels=out_channels,
+            kernel_size=1,
+            act=act,
+        )
+        self.rcsp = ReversedCSP(2 * out_channels, out_channels, depth, act=act)
+
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> Tensor:
+        h1 = self.in_conv1(x1)
+        h2 = self.in_conv2(x2)
+        h = torch.cat([h2, h1], dim=1)
+        return self.rcsp(h)
+
+
 class CSPDownBlock(nn.Module):
     def __init__(
         self,
-        in_channels1: int,
+        in_channels: tuple[int, int],
         out_channels: int,
         depth: int,
         act: Callable[[Tensor], Tensor] = DefaultActivation,
     ):
         super().__init__()
         self.in_conv = ConvBnAct(
-            in_channels=in_channels1,
+            in_channels=in_channels[0],
             out_channels=out_channels,
             kernel_size=3,
             stride=2,
             act=act,
         )
-        self.rcsp = ReversedCSP(2 * out_channels, out_channels, depth, act=act)
+        self.rcsp = ReversedCSP(out_channels+in_channels[1], out_channels, depth, act=act)
 
     def forward(self, x1: Tensor, x2: Tensor) -> Tensor:
         x1 = self.in_conv(x1)
@@ -212,7 +242,7 @@ class CSPDarkBlock(nn.Module):
     ) -> None:
         super().__init__()
         self.in_conv = ConvBnAct(in_channels, out_channels, 3, stride=2, act=act)
-        self.csp = CSP(out_channels, out_channels, depth, act=act)
+        self.csp = CSPBlock(out_channels, out_channels, depth, act=act)
 
     def forward(self, x: Tensor) -> Tensor:
         return self.csp(self.in_conv(x))
@@ -243,7 +273,7 @@ class CSPSPPBlock(nn.Module):
         return self.out_conv(h)
 
 
-class CSP(nn.Module):
+class CSPBlock(nn.Module):
     def __init__(
         self,
         in_channels: int,

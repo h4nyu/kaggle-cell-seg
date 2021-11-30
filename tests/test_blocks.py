@@ -5,6 +5,7 @@ from cellseg.blocks import (
     SpatialPyramidPooling,
     ReversedCSP,
     CSPUpBlock,
+    CSPBlock,
 )
 
 
@@ -69,3 +70,18 @@ def test_csp_up_block() -> None:
     )
     res = up(*inputs)
     assert res.shape == (1, out_channels, 128 * 2, 128 * 2)
+
+
+def test_csp_block() -> None:
+    in_channels = 16
+    out_channels = 32
+    depth = 1
+    csp = CSPBlock(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        depth=depth,
+    )
+
+    inputs = torch.rand(1, in_channels, 128, 128)
+    res = csp(inputs)
+    assert res.shape == (1, out_channels, 128, 128)

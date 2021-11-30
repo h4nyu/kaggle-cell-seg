@@ -2,38 +2,85 @@ import torch
 import torch.nn as nn
 from typing import Callable
 from torch import Tensor
-from .blocks import DefaultActivation, ConvBnAct, CSPSPPBlock, CSPUpBlock, CSPDownBlock
+from .blocks import (
+    DefaultActivation,
+    ConvBnAct,
+    CSPSPPBlock,
+    CSPUpBlock,
+    CSPDownBlock,
+    CSPPlainBlock,
+)
 
 
 class CSPNeck(nn.Module):
     def __init__(
         self,
-        in_channels: list[int] = [256, 512, 1024],
-        out_channels: list[int] = [256, 512, 1024],
+        in_channels: list[int],
+        out_channels: list[int],
+        reductions: list[int],
         depth: int = 2,
         act: Callable[[Tensor], Tensor] = DefaultActivation,
     ):
         super().__init__()
-
+        self.out_channels = out_channels
+        self.reductions = reductions
         self.spp_block = CSPSPPBlock(in_channels[-1], in_channels[-1] // 2, act=act)
 
         self.up_blocks = nn.ModuleList()  # low-res to high-res
         for idx in range(len(in_channels) - 1):
-            in_channels1 = in_channels[-idx - 1] // 2
-            in_channels2 = in_channels[-idx - 2]  # from backbone
-            channels = in_channels2 // 2
-            self.up_blocks.append(
-                CSPUpBlock(in_channels1, in_channels2, channels, depth, act=act)
-            )
+            scale_factor = reductions[-idx - 1] // reductions[-idx - 2]
+            if scale_factor == 2:
+                self.up_blocks.append(
+                    CSPUpBlock(
+                        in_channels=(
+                            in_channels[-idx - 1] // 2,
+                            in_channels[-idx - 2],
+                        ),
+                        out_channels=in_channels[-idx - 2] // 2,
+                        depth=depth,
+                        act=act,
+                    )
+                )
+            else:
+                self.up_blocks.append(
+                    CSPPlainBlock(
+                        in_channels=(
+                            in_channels[-idx - 1] // 2,
+                            in_channels[-idx - 2],
+                        ),
+                        out_channels=in_channels[-idx - 2] // 2,
+                        depth=depth,
+                        act=act,
+                    )
+                )
 
         self.down_blocks = nn.ModuleList()
         for idx in range(len(in_channels) - 1):
-            in_channels1 = in_channels[idx] // 2
-            in_channels2 = in_channels[idx + 1] // 2  # from up-blocks
-            channels = in_channels2
-            self.down_blocks.append(
-                CSPDownBlock(in_channels1, channels, depth, act=act)
-            )
+            scale_factor = reductions[idx + 1] // reductions[idx]
+            if scale_factor == 2:
+                self.down_blocks.append(
+                    CSPDownBlock(
+                        in_channels=(
+                            in_channels[idx] // 2,
+                            in_channels[idx + 1] // 2,
+                        ),
+                        out_channels=in_channels[idx + 1] // 2,
+                        depth=depth,
+                        act=act,
+                    )
+                )
+            else:
+                self.down_blocks.append(
+                    CSPPlainBlock(
+                        in_channels=(
+                            in_channels[idx] // 2,
+                            in_channels[idx + 1] // 2,
+                        ),
+                        out_channels=in_channels[idx + 1] // 2,
+                        depth=depth,
+                        act=act,
+                    )
+                )
 
         self.out_convs = nn.ModuleList(
             [

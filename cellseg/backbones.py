@@ -5,7 +5,7 @@ from typing import Protocol
 
 
 class FPNLike(Protocol):
-    channels: list[int]
+    out_channels: list[int]
     reductions: list[int]
 
     def __call__(self, x: Tensor) -> list[Tensor]:
@@ -34,7 +34,7 @@ class EfficientNetFPN(nn.Module):
         super().__init__()
         self.net = EfficientNet.from_pretrained(name)
         self.out_len = 7
-        self.channels = efficientnet_channels[name][: self.out_len]
+        self.out_channels = efficientnet_channels[name][: self.out_len]
         self.reductions = efficientnet_reductions
 
     def forward(self, images: Tensor) -> list[Tensor]:  # P1 - P6, P7 is dropped
