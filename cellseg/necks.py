@@ -17,19 +17,23 @@ class CSPNeck(nn.Module):
 
         self.spp_block = CSPSPPBlock(in_channels[-1], in_channels[-1] // 2, act=act)
 
-        self.up_blocks = nn.ModuleList() # low-res to high-res
+        self.up_blocks = nn.ModuleList()  # low-res to high-res
         for idx in range(len(in_channels) - 1):
             in_channels1 = in_channels[-idx - 1] // 2
             in_channels2 = in_channels[-idx - 2]  # from backbone
             channels = in_channels2 // 2
-            self.up_blocks.append(CSPUpBlock(in_channels1, in_channels2, channels, depth, act=act))
+            self.up_blocks.append(
+                CSPUpBlock(in_channels1, in_channels2, channels, depth, act=act)
+            )
 
         self.down_blocks = nn.ModuleList()
         for idx in range(len(in_channels) - 1):
             in_channels1 = in_channels[idx] // 2
             in_channels2 = in_channels[idx + 1] // 2  # from up-blocks
             channels = in_channels2
-            self.down_blocks.append(CSPDownBlock(in_channels1, channels, depth, act=act))
+            self.down_blocks.append(
+                CSPDownBlock(in_channels1, channels, depth, act=act)
+            )
 
         self.out_convs = nn.ModuleList(
             [

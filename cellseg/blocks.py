@@ -16,12 +16,12 @@ class ConvBnAct(nn.Module):
         out_channels: int,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1,
         dilation: int = 1,
         groups: int = 1,
         act: Optional[Callable[[Tensor], Tensor]] = nn.Mish(inplace=True),
     ) -> None:
         super().__init__()
+        padding = kernel_size // 2
         self.conv = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -96,7 +96,7 @@ class ReversedCSP(nn.Module):
         in_channels: int,
         out_channels: int,
         depth: int,
-        act: Callable,
+        act: Callable = DefaultActivation,
         eps: float = 1e-3,
         momentum: float = 3e-2,
     ):
@@ -151,21 +151,20 @@ class ReversedCSP(nn.Module):
 class CSPUpBlock(nn.Module):
     def __init__(
         self,
-        in_channels1: int,
-        in_channels2: int,
+        in_channels: tuple[int, int],
         out_channels: int,
         depth: int,
         act: Callable[[Tensor], Tensor] = DefaultActivation,
     ) -> None:
         super().__init__()
         self.in_conv1 = ConvBnAct(
-            in_channels=in_channels1,
+            in_channels=in_channels[0],
             out_channels=out_channels,
             kernel_size=1,
             act=act,
         )
         self.in_conv2 = ConvBnAct(
-            in_channels=in_channels2,
+            in_channels=in_channels[1],
             out_channels=out_channels,
             kernel_size=1,
             act=act,
