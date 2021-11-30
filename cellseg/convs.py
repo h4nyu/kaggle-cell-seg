@@ -14,7 +14,7 @@ class CovNormAct(nn.Module):
         padding: int = 1,
         dilation: int = 1,
         groups: int = 1,
-        activation: Optional[Callable[[Tensor], Tensor]] = nn.ReLU(inplace=True),
+        activation: Optional[Callable[[Tensor], Tensor]] = nn.Mish(inplace=True),
     ) -> None:
         super().__init__()
         self.conv = nn.Conv2d(
