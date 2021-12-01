@@ -32,11 +32,12 @@ from cellseg.data import (
     collate_fn,
     Tranform,
 )
+from cellseg.necks import CSPNeck
 from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
 
-@hydra.main(config_path="/app/config", config_name="config")
+@hydra.main(config_path="/app/config", config_name="solo")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
@@ -45,7 +46,12 @@ def main(cfg: DictConfig) -> None:
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
         default_score=float("inf"),
     )
-    model = Solo(**cfg.model, backbone=backbone)
+    neck = CSPNeck(
+        in_channels=backbone.out_channels,
+        out_channels=backbone.out_channels,
+        reductions=backbone.reductions,
+    )
+    model = Solo(**cfg.model, backbone=backbone, neck=neck)
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
     batch_adaptor = BatchAdaptor(
@@ -53,7 +59,7 @@ def main(cfg: DictConfig) -> None:
         grid_size=cfg.model.grid_size,
         patch_size=cfg.patch_size,
     )
-    to_masks = ToMasks(**cfg.to_masks)
+    to_masks = ToMasks(**cfg.to_masks, patch_size=cfg.patch_size)
     inference_step = PatchInferenceStep(
         model=model,
         to_masks=to_masks,
@@ -62,7 +68,9 @@ def main(cfg: DictConfig) -> None:
         patch_size=cfg.patch_size,
     )
     to_device = ToDevice(cfg.device)
-    dataset = CellTrainDataset(**cfg.dataset, transform=Tranform(cfg.patch_size))
+    dataset = CellTrainDataset(
+        **cfg.dataset, transform=Tranform(cfg.patch_size, use_patch=cfg.use_patch)
+    )
     # dataset = CellTrainDataset(**cfg.dataset)
     loader = DataLoader(
         Subset(dataset, indices=list(range(10))),

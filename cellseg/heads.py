@@ -2,7 +2,15 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from fvcore.nn import weight_init
-from .blocks import ConvBnAct, SpatialAttention
+from typing import Callable
+from .blocks import (
+    ConvBnAct,
+    SpatialAttention,
+    CSPSPPBlock,
+    DefaultActivation,
+    CSPUpBlock,
+    CSPPlainBlock,
+)
 from .coord_conv import CoordConv
 import torch.nn.functional as F
 
@@ -72,6 +80,72 @@ class Head(nn.Module):
                 out = merge_conv(up(out) + in_conv(feat))
         out = self.out_conv(out).sigmoid()
         return out
+
+
+class CSPUpHead(nn.Module):
+    def __init__(
+        self,
+        hidden_channels: int,
+        out_channels: int,
+        in_channels: list[int] = [],
+        reductions: list[int] = [],
+        depth: int = 2,
+        use_cord: bool = False,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        self.coord_conv = CoordConv()
+        self.in_convs = nn.ModuleList()
+        self.merge_convs = nn.ModuleList()
+        self.upsamples = nn.ModuleList()
+        self.use_cord = use_cord
+        self.spp_block = CSPSPPBlock(in_channels[-1], in_channels[-1] // 2, act=act)
+        self.up_blocks = nn.ModuleList()  # low-res to high-res
+        self.coord_conv = CoordConv()
+        coord_offset = 2 if use_cord else 0
+        for idx in range(len(in_channels) - 1):
+            scale_factor = reductions[-idx - 1] // reductions[-idx - 2]
+            if scale_factor == 2:
+                self.up_blocks.append(
+                    CSPUpBlock(
+                        in_channels=(
+                            (in_channels[-idx - 1] // 2) + coord_offset,
+                            in_channels[-idx - 2],
+                        ),
+                        out_channels=in_channels[-idx - 2] // 2,
+                        depth=depth,
+                        act=act,
+                    )
+                )
+            else:
+                self.up_blocks.append(
+                    CSPPlainBlock(
+                        in_channels=(
+                            (in_channels[-idx - 1] // 2) + coord_offset,
+                            in_channels[-idx - 2],
+                        ),
+                        out_channels=in_channels[-idx - 2] // 2,
+                        depth=depth,
+                        act=act,
+                    )
+                )
+
+        self.out_conv = nn.Conv2d(
+            in_channels=in_channels[0] // 2,
+            out_channels=out_channels,
+            kernel_size=1,
+            padding=0,
+            bias=False,
+        )
+
+    def forward(self, inputs: list[Tensor]) -> Tensor:
+        h = self.spp_block(inputs[-1])
+        for block, x in zip(self.up_blocks, inputs[-2::-1]):
+            if self.use_cord:
+                h = self.coord_conv(h)
+            h = block(h, x)
+        h = self.out_conv(h).sigmoid()
+        return h
 
 
 class MaskHead(nn.Module):

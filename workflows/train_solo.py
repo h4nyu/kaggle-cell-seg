@@ -19,6 +19,7 @@ from cellseg.solo import (
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
 from cellseg.utils import seed_everything, Checkpoint, MeanReduceDict, ToDevice
+from cellseg.necks import CSPNeck
 from cellseg.data import (
     get_fold_indices,
     CellTrainDataset,
@@ -30,7 +31,7 @@ from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
 
-@hydra.main(config_path="/app/config", config_name="config")
+@hydra.main(config_path="/app/config", config_name="solo")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
@@ -41,7 +42,12 @@ def main(cfg: DictConfig) -> None:
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
         default_score=float("inf"),
     )
-    model = Solo(**cfg.model, backbone=backbone)
+    neck = CSPNeck(
+        in_channels=backbone.out_channels,
+        out_channels=backbone.out_channels,
+        reductions=backbone.reductions,
+    )
+    model = Solo(**cfg.model, backbone=backbone, neck=neck)
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
     criterion = Criterion(**cfg.criterion)
@@ -50,7 +56,7 @@ def main(cfg: DictConfig) -> None:
         grid_size=cfg.model.grid_size,
         patch_size=cfg.patch_size,
     )
-    to_masks = ToMasks(**cfg.to_masks)
+    to_masks = ToMasks(**cfg.to_masks, patch_size=cfg.patch_size)
 
     optimizer = optim.Adam(model.parameters(), **cfg.optimizer)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
@@ -61,7 +67,6 @@ def main(cfg: DictConfig) -> None:
         batch_adaptor=batch_adaptor,
         use_amp=cfg.use_amp,
         to_masks=to_masks,
-        # scheduler=scheduler,
     )
     validation_step = ValidationStep(
         model=model,
@@ -73,12 +78,14 @@ def main(cfg: DictConfig) -> None:
         **cfg.dataset,
         transform=TrainTranform(
             size=cfg.patch_size,
+            use_patch=cfg.use_patch,
         ),
     )
     val_dataset = CellTrainDataset(
         **cfg.dataset,
         transform=Tranform(
             size=cfg.patch_size,
+            use_patch=cfg.use_patch,
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)

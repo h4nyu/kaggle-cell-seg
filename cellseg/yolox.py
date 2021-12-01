@@ -140,16 +140,18 @@ class MaskYolo(nn.Module):
                 feat if idx == 0 else F.interpolate(feat, size=first_level_size)
                 for idx, feat in enumerate(feats)
             ],
-            dim=1
+            dim=1,
         )
         roi_feats = roi_align(
-            merged_feats, box_batch, self.mask_size,
+            merged_feats,
+            box_batch,
+            self.mask_size,
         )
 
         return self.box_head(feats)
 
     def forward(self, x: Tensor) -> tuple[Tensor, list[Tensor]]:
-        feats = self.backbone(x)[:self.top_fpn_level]
+        feats = self.backbone(x)[: self.top_fpn_level]
         feats = self.neck(feats)
         box_preds = self.box_branch(feats)
         box_batch = self.to_boxes(box_preds)

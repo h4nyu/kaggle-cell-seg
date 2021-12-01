@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.heads import Head, MaskHead
+from cellseg.heads import Head, MaskHead, CSPUpHead
 
 
 @pytest.mark.parametrize(
@@ -28,8 +28,39 @@ def test_head(channels: list[int], reductions: list[int]) -> None:
         reductions=reductions,
     )
     res = head(features)
-    # assert res.shape[2:] == features[0].shape[2:]
-    # assert res.shape[:2] == (1, num_classes)
+    assert res.shape[2:] == features[0].shape[2:]
+    assert res.shape[:2] == (1, num_classes)
+
+
+@pytest.mark.parametrize(
+    "in_channels, reductions, use_cord",
+    [
+        ([12, 24, 48], [1, 2, 4], True),
+        ([12, 24, 48], [1, 2, 4], False),
+        ([12, 24, 48, 64], [1, 1, 1, 2], True),
+        ([12, 24, 48, 64], [1, 1, 1, 2], False),
+        ([12, 24, 48, 64], [1, 2, 2, 4], True),
+    ],
+)
+def test_csp_up_head(
+    in_channels: list[int], reductions: list[int], use_cord: bool
+) -> None:
+    out_channels = 16
+    hidden_channels = 64
+    size = 128
+    inputs = [
+        torch.rand(2, c, size // r, size // r) for c, r in zip(in_channels, reductions)
+    ]
+    head = CSPUpHead(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        hidden_channels=hidden_channels,
+        reductions=reductions,
+        use_cord=use_cord,
+        depth=2,
+    )
+    outs = head(inputs)
+    assert outs.shape == (2, out_channels, size, size)
 
 
 def test_mask_head() -> None:

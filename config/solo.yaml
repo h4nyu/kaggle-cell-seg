@@ -1,11 +1,13 @@
-name: solo-baseline-patch-192-b0-48-128
+name: solo-neck-csp-patch-192-b0-48-128
 use_amp: true
 num_epochs: 100
 device: cuda
 seed: &seed 0 
+use_patch: true
 log_keys:
   - loss
   - category_loss
+  - size_loss
   - mask_loss
 
 root_path: &root_path /store
@@ -38,15 +40,13 @@ model:
 mask_ap:
   reduce_size: 8
   use_batch: true
-  # thresholds:
-  #   - 0.7
 
 
 to_masks:
-  category_threshold: 0.55
-  mask_threshold: 0.75
-  kernel_size: 5
-  use_nms: false
+  category_threshold: 0.60
+  mask_threshold: 0.7
+  kernel_size: 3
+  use_nms: true
 
 dataset:
   img_dir: /store/train
@@ -54,10 +54,11 @@ dataset:
   smallest_area: 81
 criterion:
   category_weight: 1.0
+  size_weight: 2.0
   mask_weight: 2.0
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-3
 
 scheduler:
   mode: min

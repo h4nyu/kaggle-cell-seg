@@ -4,6 +4,7 @@ from cellseg.yolox import MaskYolo, ToBoxes
 from cellseg.backbones import EfficientNetFPN
 from cellseg.necks import CSPNeck
 
+
 @pytest.fixture
 def mask_yolo() -> MaskYolo:
     backbone = EfficientNetFPN("efficientnet-b0")
@@ -25,12 +26,14 @@ def mask_yolo() -> MaskYolo:
         top_fpn_level=top_fpn_level,
     )
 
-def test_mask_yolo(mask_yolo:MaskYolo) -> None:
+
+def test_mask_yolo(mask_yolo: MaskYolo) -> None:
     image_size = 256
     images = torch.rand(2, 3, image_size, image_size)
     masks = mask_yolo(images)
 
-def test_mask_yolo_mask_branch(mask_yolo:MaskYolo) -> None:
+
+def test_mask_yolo_mask_branch(mask_yolo: MaskYolo) -> None:
     top_fpn_level = mask_yolo.top_fpn_level
     out_channels = mask_yolo.backbone.out_channels[:top_fpn_level]
     reductions = mask_yolo.backbone.reductions[:top_fpn_level]
@@ -39,9 +42,11 @@ def test_mask_yolo_mask_branch(mask_yolo:MaskYolo) -> None:
         torch.rand(1, c, image_size // r, image_size // r)
         for (c, r) in zip(out_channels, reductions)
     ]
-    boxes = torch.tensor([
-        [ 10, 20, 30, 40],
-        [ 10, 20, 30, 40],
-    ]).float()
+    boxes = torch.tensor(
+        [
+            [10, 20, 30, 40],
+            [10, 20, 30, 40],
+        ]
+    ).float()
     box_batch = [boxes]
     masks = mask_yolo.mask_branch(box_batch, features)

@@ -2,13 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from .heads import Head
+from .heads import Head, CSPUpHead
 from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import masks_to_boxes, box_convert
 from .utils import grid, draw_save, ToPatches, MergePatchedMasks
 from .backbones import FPNLike
+from .necks import NeckLike
 
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
@@ -206,6 +207,7 @@ class Solo(nn.Module):
     def __init__(
         self,
         backbone: FPNLike,
+        neck: NeckLike,
         hidden_channels: int,
         grid_size: int,
         category_feat_range: tuple[int, int],
@@ -216,11 +218,14 @@ class Solo(nn.Module):
         self.category_feat_range = category_feat_range
         self.mask_feat_range = mask_feat_range
         self.backbone = backbone
+        self.neck = neck
         self.grid_size = grid_size
         self.category_head = Head(
             hidden_channels=hidden_channels,
             num_classes=num_classes,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[
+                category_feat_range[0] : category_feat_range[1]
+            ],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -230,23 +235,26 @@ class Solo(nn.Module):
         self.size_head = Head(
             hidden_channels=hidden_channels,
             num_classes=4,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
+            channels=backbone.out_channels[
+                category_feat_range[0] : category_feat_range[1]
+            ],
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
             use_cord=False,
         )
 
-        self.mask_head = Head(
+        self.mask_head = CSPUpHead(
             hidden_channels=hidden_channels,
-            num_classes=grid_size ** 2,
-            channels=backbone.channels[mask_feat_range[0] : mask_feat_range[1]],
+            out_channels=grid_size ** 2,
+            in_channels=backbone.out_channels[mask_feat_range[0] : mask_feat_range[1]],
             reductions=backbone.reductions[mask_feat_range[0] : mask_feat_range[1]],
             use_cord=True,
         )
 
     def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         features = self.backbone(image_batch)
+        features = self.neck(features)
         category_feats = features[
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
