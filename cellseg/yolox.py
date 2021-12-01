@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 from typing import Callable, Any
 import torch.nn as nn
+import torch.nn.functional as F
 from .blocks import ConvBnAct, DefaultActivation
 from .backbones import FPNLike
 from .necks import NeckLike
@@ -57,8 +58,8 @@ class DecoupledHeadUnit(nn.Module):
                 kernel_size=3,
                 act=act,
             ),
-            nn.Conv2d(hidden_channels, num_classes, 1),
         )
+        self.cls_out_conv = nn.Conv2d(hidden_channels, num_classes, 1)
         self._init_weights()
 
     def _init_weights(self, prior_prob: Any = 1e-2) -> None:
@@ -70,7 +71,7 @@ class DecoupledHeadUnit(nn.Module):
         h1 = self.reg_conv(h)
         y_reg = self.reg_out_conv(h1)
         y_obj = self.obj_out_conv(h1)
-        y_cls = self.cls_conv(h)
+        y_cls = self.cls_out_conv(self.cls_conv(h))
         return torch.cat([y_reg, y_obj, y_cls], dim=1)
 
 
@@ -103,34 +104,54 @@ class YoloxHead(nn.Module):
         return [m(x) for m, x in zip(self.heads, inputs)]
 
 
-class YoloxDetector(nn.Module):
+class ToBoxes:
+    def __call__(self, pred: Tensor) -> list[Tensor]:
+        ...
+
+
+class MaskYolo(nn.Module):
     def __init__(
         self,
         backbone: FPNLike,
         neck: NeckLike,
+        to_boxes: ToBoxes,
         num_classes: int,
         mask_size: int,
+        top_fpn_level: int,
     ) -> None:
         super().__init__()
         self.backbone = backbone
         self.neck = neck
         self.mask_size = mask_size
+        self.top_fpn_level = top_fpn_level
+        self.to_boxes = to_boxes
         self.box_head = YoloxHead(
             in_channels=neck.out_channels, num_classes=num_classes
         )
-        self.mask_head = MaskHead(in_channels=neck.out_channels)
+        self.mask_head = MaskHead(in_channels=sum(neck.out_channels), out_channels=1)
 
     def box_branch(self, feats: list[Tensor]) -> Tensor:
         return self.box_head(feats)
 
     def mask_branch(self, box_batch: list[Tensor], feats: list[Tensor]) -> Tensor:
+        first_level_size = feats[0].shape[2:]
+        merged_feats = torch.cat(
+            [
+                feat if idx == 0 else F.interpolate(feat, size=first_level_size)
+                for idx, feat in enumerate(feats)
+            ],
+            dim=1
+        )
         roi_feats = roi_align(
-            feats, bboxes_batch, self.mask_size // 2, 1 / self.mask_feature_stride
+            merged_feats, box_batch, self.mask_size,
         )
 
         return self.box_head(feats)
 
     def forward(self, x: Tensor) -> tuple[Tensor, list[Tensor]]:
-        feats = self.neck(self.backbone(x))
+        feats = self.backbone(x)[:self.top_fpn_level]
+        feats = self.neck(feats)
         box_preds = self.box_branch(feats)
+        box_batch = self.to_boxes(box_preds)
+        mask_preds = self.mask_branch(box_batch, feats)
         return box_preds, feats
