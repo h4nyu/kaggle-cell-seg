@@ -1,32 +1,37 @@
 import pytest
 import torch
+from typing import Optional
 from cellseg.heads import Head, MaskHead, CSPUpHead
 
 
 @pytest.mark.parametrize(
-    "channels, reductions",
+    "in_channels, reductions, coord_level",
     [
-        ([12, 24, 48], [1, 2, 4]),
-        # ([12, 24, 48, 64], [1, 1, 1, 2]),
-        # ([12, 24, 48, 64], [1, 2, 2, 4]),
+        ([12, 24, 48], [1, 2, 4], None),
+        ([12, 24, 48], [1, 2, 4], 0),
+        ([12, 24, 48], [1, 2, 4], 1),
+        ([12, 24, 48, 64], [1, 1, 1, 2], 0),
+        ([12, 24, 48, 64], [1, 1, 1, 2], 1),
+        ([12, 24, 48, 64], [1, 1, 1, 2], 2),
     ],
 )
-def test_solo_head(channels: list[int], reductions: list[int]) -> None:
-    in_channels = 64
+def test_solo_head(
+    in_channels: list[int], reductions: list[int], coord_level: Optional[int]
+) -> None:
     hidden_channels = 64
     base_resolution = 512
     out_channels = 3 * 3
 
     features = [
         torch.rand(1, c, base_resolution // s, base_resolution // s)
-        for (c, s) in zip(channels, reductions)
+        for (c, s) in zip(in_channels, reductions)
     ]
     head = Head(
         hidden_channels=hidden_channels,
         out_channels=out_channels,
-        channels=channels,
+        in_channels=in_channels,
         reductions=reductions,
-        use_cord=True,
+        coord_level=coord_level,
     )
     res = head(features)
     assert res.shape[2:] == features[0].shape[2:]

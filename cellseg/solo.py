@@ -229,7 +229,6 @@ class Solo(nn.Module):
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=False,
         )
 
         self.size_head = Head(
@@ -241,7 +240,6 @@ class Solo(nn.Module):
             reductions=backbone.reductions[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=False,
         )
 
         self.mask_head = Head(
@@ -249,7 +247,7 @@ class Solo(nn.Module):
             out_channels=grid_size ** 2,
             in_channels=backbone.out_channels[mask_feat_range[0] : mask_feat_range[1]],
             reductions=backbone.reductions[mask_feat_range[0] : mask_feat_range[1]],
-            use_cord=True,
+            coord_level=len(mask_feat_range) - 1,
         )
 
     def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor, Tensor]:

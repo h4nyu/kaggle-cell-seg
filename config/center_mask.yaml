@@ -1,4 +1,4 @@
-name: center_mask-baseline-patch-b0-neck-768-48
+name: center_mask-baseline-patch-b0-neck-768-48-128
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -20,7 +20,7 @@ mask_size: 8
 
 # model
 category_feat_range: [4, 6]
-hidden_channels: 64
+hidden_channels: 128
 
 
 # to masks

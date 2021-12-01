@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from fvcore.nn import weight_init
-from typing import Callable
+from typing import Callable, Optional
 from .blocks import (
     ConvBnAct,
     SpatialAttention,
@@ -22,15 +22,14 @@ class Head(nn.Module):
         out_channels: int,
         in_channels: list[int] = [],
         reductions: list[int] = [],
-        use_cord: bool = False,
+        coord_level: Optional[int] = False,
     ) -> None:
         super().__init__()
         self.coord_conv = CoordConv()
         self.in_convs = nn.ModuleList()
         self.merge_convs = nn.ModuleList()
         self.upsamples = nn.ModuleList()
-        self.use_cord = use_cord
-        offset = 2 if use_cord else 0
+        self.coord_level = coord_level
         for idx, in_c in enumerate(in_channels):
             self.in_convs.append(
                 nn.Conv2d(
@@ -42,6 +41,7 @@ class Head(nn.Module):
                 )
             )
 
+        self.enable_coords = []
         for idx in range(len(reductions) - 1):
             scale_factor = reductions[idx + 1] // reductions[idx]
             if scale_factor == 2:
@@ -61,6 +61,12 @@ class Head(nn.Module):
                         out_channels=hidden_channels,
                     ),
                 )
+            offset = 0
+            if idx == coord_level:
+                self.enable_coords.append(True)
+                offset = 2
+            else:
+                self.enable_coords.append(False)
 
             self.merge_convs.append(
                 ConvBnAct(
@@ -74,19 +80,19 @@ class Head(nn.Module):
             out_channels=out_channels,
             kernel_size=1,
             padding=0,
-            bias=False,
         )
 
     def forward(self, features: list[Tensor]) -> Tensor:
         out = self.in_convs[-1](features[-1])
-        for feat, in_conv, up, merge_conv in zip(
+        for (feat, in_conv, up, merge_conv, enable_coord) in zip(
             features[::-1][1:],
             self.in_convs[::-1][1:],
             self.upsamples[::-1],
             self.merge_convs[::-1],
+            self.enable_coords[::-1],
         ):
             out = up(out) + in_conv(feat)
-            if self.use_cord:
+            if enable_coord:
                 out = self.coord_conv(out)
             out = merge_conv(out)
         out = self.out_conv(out).sigmoid()
