@@ -220,10 +220,10 @@ class Solo(nn.Module):
         self.backbone = backbone
         self.neck = neck
         self.grid_size = grid_size
-        self.category_head = Head(
+        self.category_head = CSPUpHead(
             hidden_channels=hidden_channels,
-            num_classes=num_classes,
-            channels=backbone.out_channels[
+            out_channels=num_classes,
+            in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
             reductions=backbone.reductions[
@@ -232,10 +232,10 @@ class Solo(nn.Module):
             use_cord=False,
         )
 
-        self.size_head = Head(
+        self.size_head = CSPUpHead(
             hidden_channels=hidden_channels,
-            num_classes=4,
-            channels=backbone.out_channels[
+            out_channels=4,
+            in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
             reductions=backbone.reductions[
