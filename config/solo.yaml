@@ -1,4 +1,4 @@
-name: solo-neck-csp-patch-192-b0-48-128
+name: solo-neck-patch-192-b0-48-128
 use_amp: true
 num_epochs: 100
 device: cuda

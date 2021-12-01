@@ -15,7 +15,7 @@ def test_solo_head(channels: list[int], reductions: list[int]) -> None:
     in_channels = 64
     hidden_channels = 64
     base_resolution = 512
-    num_classes = 3 * 3
+    out_channels = 3 * 3
 
     features = [
         torch.rand(1, c, base_resolution // s, base_resolution // s)
@@ -23,14 +23,14 @@ def test_solo_head(channels: list[int], reductions: list[int]) -> None:
     ]
     head = Head(
         hidden_channels=hidden_channels,
-        num_classes=num_classes,
+        out_channels=out_channels,
         channels=channels,
         reductions=reductions,
         use_cord=True,
     )
     res = head(features)
     assert res.shape[2:] == features[0].shape[2:]
-    assert res.shape[:2] == (1, num_classes)
+    assert res.shape[:2] == (1, out_channels)
 
 
 @pytest.mark.parametrize(

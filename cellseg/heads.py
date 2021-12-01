@@ -19,8 +19,8 @@ class Head(nn.Module):
     def __init__(
         self,
         hidden_channels: int,
-        num_classes: int,
-        channels: list[int] = [],
+        out_channels: int,
+        in_channels: list[int] = [],
         reductions: list[int] = [],
         use_cord: bool = False,
     ) -> None:
@@ -31,10 +31,10 @@ class Head(nn.Module):
         self.upsamples = nn.ModuleList()
         self.use_cord = use_cord
         offset = 2 if use_cord else 0
-        for idx, in_channels in enumerate(channels):
+        for idx, in_c in enumerate(in_channels):
             self.in_convs.append(
                 nn.Conv2d(
-                    in_channels=in_channels,
+                    in_channels=in_c,
                     out_channels=hidden_channels,
                     kernel_size=1,
                     padding=0,
@@ -71,7 +71,7 @@ class Head(nn.Module):
         self.coord_conv = CoordConv()
         self.out_conv = nn.Conv2d(
             in_channels=hidden_channels,
-            out_channels=num_classes,
+            out_channels=out_channels,
             kernel_size=1,
             padding=0,
             bias=False,

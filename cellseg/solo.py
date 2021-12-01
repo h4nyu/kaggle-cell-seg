@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from .heads import Head, CSPUpHead
+from .heads import Head
 from typing import Protocol, TypedDict, Optional, Callable, Any
 from cellseg.loss import FocalLoss, DiceLoss
 from torch.cuda.amp import GradScaler, autocast
@@ -220,7 +220,7 @@ class Solo(nn.Module):
         self.backbone = backbone
         self.neck = neck
         self.grid_size = grid_size
-        self.category_head = CSPUpHead(
+        self.category_head = Head(
             hidden_channels=hidden_channels,
             out_channels=num_classes,
             in_channels=backbone.out_channels[
@@ -232,7 +232,7 @@ class Solo(nn.Module):
             use_cord=False,
         )
 
-        self.size_head = CSPUpHead(
+        self.size_head = Head(
             hidden_channels=hidden_channels,
             out_channels=4,
             in_channels=backbone.out_channels[
@@ -244,7 +244,7 @@ class Solo(nn.Module):
             use_cord=False,
         )
 
-        self.mask_head = CSPUpHead(
+        self.mask_head = Head(
             hidden_channels=hidden_channels,
             out_channels=grid_size ** 2,
             in_channels=backbone.out_channels[mask_feat_range[0] : mask_feat_range[1]],

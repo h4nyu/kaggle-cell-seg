@@ -31,7 +31,7 @@ class CenterMask(nn.Module):
         self.neck = neck
         self.category_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=num_classes,
+            out_channels=num_classes,
             channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -43,7 +43,7 @@ class CenterMask(nn.Module):
 
         self.size_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=2,
+            out_channels=2,
             channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -55,7 +55,7 @@ class CenterMask(nn.Module):
 
         self.offset_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=2,
+            out_channels=2,
             channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
@@ -67,7 +67,7 @@ class CenterMask(nn.Module):
 
         self.sliency_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=1,
+            out_channels=1,
             channels=backbone.out_channels,
             reductions=backbone.reductions,
             use_cord=False,
@@ -75,7 +75,7 @@ class CenterMask(nn.Module):
 
         self.mask_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=mask_size ** 2,
+            out_channels=mask_size ** 2,
             channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
