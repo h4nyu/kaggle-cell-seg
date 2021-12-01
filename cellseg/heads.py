@@ -30,6 +30,7 @@ class Head(nn.Module):
         self.merge_convs = nn.ModuleList()
         self.upsamples = nn.ModuleList()
         self.use_cord = use_cord
+        offset = 2 if use_cord else 0
         for idx, in_channels in enumerate(channels):
             self.in_convs.append(
                 nn.Conv2d(
@@ -43,17 +44,27 @@ class Head(nn.Module):
 
         for idx in range(len(reductions) - 1):
             scale_factor = reductions[idx + 1] // reductions[idx]
-            self.upsamples.append(
-                nn.Upsample(
-                    scale_factor=scale_factor, mode="bilinear", align_corners=False
+            if scale_factor == 2:
+                self.upsamples.append(
+                    nn.ConvTranspose2d(
+                        in_channels=hidden_channels,
+                        out_channels=hidden_channels,
+                        kernel_size=2,
+                        stride=2,
+                        bias=False,
+                    )
                 )
-            )
+            else:
+                self.upsamples.append(
+                    ConvBnAct(
+                        in_channels=hidden_channels,
+                        out_channels=hidden_channels,
+                    ),
+                )
 
             self.merge_convs.append(
                 ConvBnAct(
-                    in_channels=hidden_channels + 2
-                    if self.use_cord
-                    else hidden_channels,
+                    in_channels=hidden_channels + offset,
                     out_channels=hidden_channels,
                 ),
             )
@@ -74,10 +85,10 @@ class Head(nn.Module):
             self.upsamples[::-1],
             self.merge_convs[::-1],
         ):
+            out = up(out) + in_conv(feat)
             if self.use_cord:
-                out = merge_conv(self.coord_conv(up(out) + in_conv(feat)))
-            else:
-                out = merge_conv(up(out) + in_conv(feat))
+                out = self.coord_conv(out)
+            out = merge_conv(out)
         out = self.out_conv(out).sigmoid()
         return out
 

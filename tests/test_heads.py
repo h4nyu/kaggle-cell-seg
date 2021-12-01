@@ -7,11 +7,11 @@ from cellseg.heads import Head, MaskHead, CSPUpHead
     "channels, reductions",
     [
         ([12, 24, 48], [1, 2, 4]),
-        ([12, 24, 48, 64], [1, 1, 1, 4]),
-        ([12, 24, 48, 64], [1, 2, 2, 4]),
+        # ([12, 24, 48, 64], [1, 1, 1, 2]),
+        # ([12, 24, 48, 64], [1, 2, 2, 4]),
     ],
 )
-def test_head(channels: list[int], reductions: list[int]) -> None:
+def test_solo_head(channels: list[int], reductions: list[int]) -> None:
     in_channels = 64
     hidden_channels = 64
     base_resolution = 512
@@ -26,6 +26,7 @@ def test_head(channels: list[int], reductions: list[int]) -> None:
         num_classes=num_classes,
         channels=channels,
         reductions=reductions,
+        use_cord=True,
     )
     res = head(features)
     assert res.shape[2:] == features[0].shape[2:]
