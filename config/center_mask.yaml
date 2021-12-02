@@ -26,7 +26,7 @@ hidden_channels: 128
 # to masks
 category_threshold: 0.6
 mask_threshold: 0.4
-use_global_mask: false
+use_global_mask: true
 
 data:
   root_path: *root_path
@@ -59,10 +59,11 @@ dataset:
 criterion:
   category_weight: 1.0
   mask_weight: 1.0
-  size_weight: 10.0
+  size_weight: 50.0
 
 optimizer:
-  lr: 1e-3
+  # lr: 1e-3
+  lr: 5e-4
 
 scheduler:
   mode: min
