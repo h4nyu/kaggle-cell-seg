@@ -44,6 +44,14 @@ def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, T
     return (grid_y, grid_x)
 
 
+def grid_points(
+    h: int, w: int, dtype: Optional[torch.dtype] = None
+) -> Tensor:  # [h*w, 2]
+    return torch.stack(
+        torch.meshgrid([torch.arange(h), torch.arange(w)])[::-1], dim=2
+    ).reshape(h * w, 2)
+
+
 T = TypeVar("T", bound=nn.Module)
 
 

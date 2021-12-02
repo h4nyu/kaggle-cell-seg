@@ -271,7 +271,9 @@ class ToMasks:
         category_threshold: float = 0.5,
         mask_threshold: float = 0.5,
         kernel_size: int = 3,
+        use_global_mask: bool = True,
     ) -> None:
+        self.use_global_mask = use_global_mask
         self.category_threshold = category_threshold
         self.mask_threshold = mask_threshold
         self.max_pool = nn.MaxPool2d(
@@ -344,7 +346,10 @@ class ToMasks:
                 crop_mask[:, b[1] : b[3] + 1, b[0] : b[2] + 1] = gm.view(
                     1, *gm.shape[2:]
                 )
-                masks[i] = sliency_mask * crop_mask
+                if self.use_global_mask:
+                    masks[i] = sliency_mask * crop_mask
+                else:
+                    masks[i] = crop_mask
 
             masks = masks > self.mask_threshold
             empty_filter = masks.sum(dim=[1, 2]) > 0

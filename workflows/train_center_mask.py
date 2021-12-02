@@ -66,6 +66,7 @@ def main(cfg: DictConfig) -> None:
     to_masks = ToMasks(
         category_threshold=cfg.category_threshold,
         mask_threshold=cfg.mask_threshold,
+        use_global_mask=cfg.use_global_mask,
     )
 
     optimizer = optim.Adam(model.parameters(), **cfg.optimizer)
