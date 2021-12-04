@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.assign import IoUAssign
+from cellseg.assign import IoUAssign, ATSS
 
 
 def test_iou_assgin() -> None:
@@ -25,3 +25,18 @@ def test_iou_assgin_empty(in_len: int, tgt_len: int) -> None:
     targets = torch.zeros(tgt_len, 4)
     pair = a(inputs, targets)
     assert len(pair) == 0
+
+
+def test_atss() -> None:
+    inputs = torch.zeros(5, 4)
+    inputs[0] = torch.tensor([0, 0, 5, 5])
+    inputs[1] = torch.tensor([0, 0, 3, 3])
+    inputs[2] = torch.tensor([0, 0, 2, 2])
+    inputs[3] = torch.tensor([10, 10, 20, 20])
+    inputs[4] = torch.tensor([5, 10, 10, 15])
+
+    targets = torch.zeros(2, 4)
+    targets[0] = torch.tensor([0, 0, 4, 4])
+    targets[1] = torch.tensor([5, 10, 10, 20])
+    a = ATSS(topk=5)
+    pair = a(inputs, targets)

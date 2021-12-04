@@ -49,24 +49,24 @@ class ATSS:
 
     def __call__(
         self,
-        anchors: Tensor,
-        gt: Tensor,
+        pred_boxes: Tensor,
+        gt_boxes: Tensor,
     ) -> Tensor:
-        device = anchors.device
-        matched_ids = self.assign(anchors, gt)
+        device = pred_boxes.device
+        matched_ids = self.assign(pred_boxes, gt_boxes)
         gt_count, _ = matched_ids.shape
-        anchor_count, _ = anchors.shape
+        pred_count, _ = pred_boxes.shape
         pos_ids = torch.zeros(
             (
                 gt_count,
-                anchor_count,
+                pred_count,
             ),
             device=device,
         )
         for i in range(gt_count):
             ids = matched_ids[i]
-            matched_anchors = anchors[ids]
-            ious = box_iou(matched_anchors, gt[[i]]).view(-1)
+            matched_preds = pred_boxes[ids]
+            ious = box_iou(matched_preds, gt_boxes[[i]]).view(-1)
             m_iou = ious.mean()
             s_iou = ious.std()
             th = m_iou + s_iou
@@ -75,10 +75,6 @@ class ATSS:
 
 
 class IoUAssign:
-    """
-    Adaptive Training Sample Selection
-    """
-
     def __init__(
         self,
         threshold: float = 0.7,
