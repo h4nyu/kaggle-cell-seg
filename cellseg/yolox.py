@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
 from typing import Callable, Any, Optional
+from torch.cuda.amp import GradScaler, autocast
 import torch.nn as nn
 import torch.nn.functional as F
 from .blocks import ConvBnAct, DefaultActivation
@@ -14,6 +15,7 @@ from .assign import IoUAssign
 from cellseg.utils import round_to
 import math
 
+Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
 class DecoupledHeadUnit(nn.Module):
     def __init__(
@@ -114,7 +116,7 @@ class ToBoxes:
     ) -> None:
         self.strides = strides
 
-    def __call__(self, yolo_batch: Tensor) -> None:
+    def __call__(self, yolo_batch: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         device = yolo_batch.device
         box_batch = box_convert(yolo_batch[..., :4], in_fmt="cxcywh", out_fmt="xyxy")
         obj_batch = yolo_batch[..., 4]
@@ -130,7 +132,7 @@ class MergeLevel:
     ) -> None:
         self.strides = strides
 
-    def __call__(self, box_levels: list[Tensor]) -> None:
+    def __call__(self, box_levels: list[Tensor]) -> Tensor:
         device = box_levels[0].device
         yolo_box_list = []
         for pred, stride in zip(box_levels, self.strides):
@@ -175,7 +177,9 @@ class MaskYolo(nn.Module):
         self.reductions = self.neck.reductions
         self.strides = self.neck.reductions
         self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
-        self.mask_strides = self.strides[self.mask_feat_range[0]: self.mask_feat_range[1]]
+        self.mask_strides = self.strides[
+            self.mask_feat_range[0] : self.mask_feat_range[1]
+        ]
         self.box_head = YoloxHead(
             in_channels=neck.out_channels[
                 self.box_feat_range[0] : self.box_feat_range[1]
@@ -185,7 +189,8 @@ class MaskYolo(nn.Module):
         self.local_mask_head = MaskHead(
             in_channels=sum(neck.out_channels), out_channels=1
         )
-        self.merge_level = MergeLevel(strides=self.strides)
+        self.merge_level = MergeLevel(strides=self.box_strides)
+        self.to_boxes = ToBoxes(strides=self.box_strides)
 
     def box_branch(self, feats: list[Tensor]) -> list[Tensor]:
         return self.box_head(feats)
@@ -214,12 +219,12 @@ class MaskYolo(nn.Module):
     def box_feats(self, x: list[Tensor]) -> list[Tensor]:
         return x[self.box_feat_range[0] : self.box_feat_range[1]]
 
-    def forward(self, x: Tensor) -> list[Tensor]:
-        feats = self.backbone(x)[: self.top_fpn_level]
+    def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        feats = self.feats(image_batch)
         box_feats = self.box_feats(feats)
         box_levels = self.box_branch(box_feats)
         yolo_batch = self.merge_level(box_levels)
-        obj_batch, box_batch, cate_batch, _ = self.to_boxes(yolo_batch)
+        obj_batch, box_batch, cate_batch, label_batch = self.to_boxes(yolo_batch)
         mask_batch = self.local_mask_branch(box_batch, feats)
         return obj_batch, box_batch, cate_batch, label_batch, mask_batch
 
@@ -251,7 +256,7 @@ class Criterion:
         self,
         inputs: tuple[Tensor],
         targets: tuple[list[Tensor], list[Tensor]],
-    ) -> None:
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         (images,) = inputs  # list of [b, num_classes + 5, h, w]
         gt_mask_batch, gt_label_batch = targets
         device = images.device
@@ -302,7 +307,7 @@ class Criterion:
         gt_mask_batch: list[Tensor],
         gt_label_batch: list[Tensor],
         pred_box_batch: Tensor,
-    ) -> tuple[Tensor, Tensor, list[Tensor], Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         device = pred_box_batch.device
         num_classes = self.model.num_classes
         gt_yolo_batch = torch.zeros(
@@ -335,3 +340,42 @@ class Criterion:
         pos_idx = gt_yolo_batch[..., 4] > 0
         gt_local_mask_batch = torch.cat(gt_local_mask_list)
         return gt_yolo_batch, gt_local_mask_batch, pos_idx
+
+
+class TrainStep:
+    def __init__(
+        self,
+        criterion: Criterion,
+        model: MaskYolo,
+        optimizer: Any,
+        use_amp: bool = True,
+    ) -> None:
+        self.criterion = criterion
+        self.model = model
+        self.optimizer = optimizer
+        self.use_amp = use_amp
+        self.scaler = GradScaler()
+
+    def __call__(self, batch: Batch) -> dict[str, float]:
+        self.model.train()
+        self.optimizer.zero_grad()
+        with autocast(enabled=self.use_amp):
+            images, gt_mask_batch, gt_label_batch = batch
+            loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
+                (images,),
+                (
+                    gt_mask_batch,
+                    gt_label_batch,
+                ),
+            )
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+
+        return dict(
+            loss=loss.item(),
+            obj_loss=obj_loss.item(),
+            box_loss=box_loss.item(),
+            cate_loss=cate_loss.item(),
+            local_mask_loss=local_mask_loss.item(),
+        )
