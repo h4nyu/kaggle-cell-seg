@@ -107,64 +107,6 @@ class YoloxHead(nn.Module):
         return [m(x) for m, x in zip(self.heads, inputs)]
 
 
-class MaskYolo(nn.Module):
-    def __init__(
-        self,
-        backbone: FPNLike,
-        neck: NeckLike,
-        num_classes: int,
-        mask_size: int,
-        top_fpn_level: int,
-        mask_feat_range: tuple[int, int] = (3, 5),
-    ) -> None:
-        super().__init__()
-        self.backbone = backbone
-        self.neck = neck
-        self.mask_size = mask_size
-        self.top_fpn_level = top_fpn_level
-        self.num_classes = num_classes
-        self.reductions = self.neck.reductions
-        self.box_head = YoloxHead(
-            in_channels=neck.out_channels, num_classes=num_classes
-        )
-        self.local_mask_head = MaskHead(
-            in_channels=sum(neck.out_channels), out_channels=1
-        )
-        self.strides = self.neck.reductions
-        self.mask_feat_range = mask_feat_range
-        self.local_mask_stride = self.strides[self.mask_feat_range[0]]
-
-    def box_branch(self, feats: list[Tensor]) -> list[Tensor]:
-        return self.box_head(feats)
-
-    def local_mask_branch(self, box_batch: Tensor, feats: list[Tensor]) -> list[Tensor]:
-        first_level_size = feats[0].shape[2:]
-        merged_feats = torch.cat(
-            [
-                feat if idx == 0 else F.interpolate(feat, size=first_level_size)
-                for idx, feat in enumerate(feats)
-            ],
-            dim=1,
-        )
-        roi_feats = roi_align(
-            merged_feats,
-            list(box_batch.unsqueeze(1)),
-            self.mask_size,
-        )
-        local_masks = self.local_mask_head(roi_feats)
-        return local_masks
-
-    def features(self, x: Tensor) -> list[Tensor]:
-        feats = self.backbone(x)[: self.top_fpn_level]
-        return self.neck(feats)
-
-    # def forward(self, x: Tensor) -> tuple[Tensor, list[Tensor]]:
-    #     feats = self.features(x)
-    #     box_preds = self.box_branch(feats)
-    #     box_batch = self.to_boxes(box_preds)
-    #     return box_preds, feats
-
-
 class ToBoxes:
     def __init__(
         self,
@@ -211,6 +153,67 @@ class MergeLevel:
             yolo_box_list.append(yolo_boxes)
         yolo_batch = torch.cat(yolo_box_list, dim=1)
         return yolo_batch
+
+
+class MaskYolo(nn.Module):
+    def __init__(
+        self,
+        backbone: FPNLike,
+        neck: NeckLike,
+        num_classes: int,
+        mask_size: int,
+        top_fpn_level: int,
+        mask_feat_range: tuple[int, int] = (3, 5),
+    ) -> None:
+        super().__init__()
+        self.backbone = backbone
+        self.neck = neck
+        self.mask_size = mask_size
+        self.top_fpn_level = top_fpn_level
+        self.num_classes = num_classes
+        self.reductions = self.neck.reductions
+        self.box_head = YoloxHead(
+            in_channels=neck.out_channels, num_classes=num_classes
+        )
+        self.local_mask_head = MaskHead(
+            in_channels=sum(neck.out_channels), out_channels=1
+        )
+        self.strides = self.neck.reductions
+        self.mask_feat_range = mask_feat_range
+        self.local_mask_stride = self.strides[self.mask_feat_range[0]]
+        self.merge_level = MergeLevel(strides=self.strides)
+
+    def box_branch(self, feats: list[Tensor]) -> list[Tensor]:
+        return self.box_head(feats)
+
+    def local_mask_branch(self, box_batch: Tensor, feats: list[Tensor]) -> Tensor:
+        first_level_size = feats[0].shape[2:]
+        merged_feats = torch.cat(
+            [
+                feat if idx == 0 else F.interpolate(feat, size=first_level_size)
+                for idx, feat in enumerate(feats)
+            ],
+            dim=1,
+        )
+        roi_feats = roi_align(
+            merged_feats,
+            list(box_batch.unsqueeze(1)),
+            self.mask_size,
+        )
+        local_masks = self.local_mask_head(roi_feats)
+        return local_masks
+
+    def features(self, x: Tensor) -> list[Tensor]:
+        feats = self.backbone(x)[: self.top_fpn_level]
+        return self.neck(feats)
+
+    def forward(self, x: Tensor) -> list[Tensor]:
+        feats = self.backbone(x)[: self.top_fpn_level]
+        box_levels = self.box_branch(feats)
+        yolo_batch = self.merge_level(box_levels)
+        obj_batch, box_batch, cate_batch, _ = self.to_boxes(yolo_batch)
+        mask_batch = self.local_mask_branch(box_batch, feats)
+        return obj_batch, box_batch, cate_batch, label_batch, mask_batch
 
 
 class Criterion:
