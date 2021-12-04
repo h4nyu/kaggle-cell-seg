@@ -48,28 +48,27 @@ def test_mask_yolo_box_branch(mask_yolo: MaskYolo) -> None:
     image_size = 256
     images = torch.rand(2, 3, image_size, image_size)
     feats = mask_yolo.feats(images)
-    res = mask_yolo.box_branch(feats)
-    assert len(res) == mask_yolo.top_fpn_level
-    for pred_box_batch, r in zip(res, mask_yolo.reductions):
-        assert pred_box_batch.shape == (2, 7, image_size // r, image_size // r)
+    box_feats = mask_yolo.box_feats(feats)
+    res = mask_yolo.box_branch(box_feats)
+    assert len(res) == len(mask_yolo.box_strides)
+    for pred_box_batch, s in zip(res, mask_yolo.box_strides):
+        assert pred_box_batch.shape == (2, 7, image_size // s, image_size // s)
 
 
 def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
-    top_fpn_level = mask_yolo.top_fpn_level
     out_channels = mask_yolo.backbone.out_channels
-    reductions = mask_yolo.backbone.reductions
-    image_size = 128
-    features = [
-        torch.rand(1, c, image_size // r, image_size // r)
-        for (c, r) in zip(out_channels, reductions)
-    ]
+    strides = mask_yolo.strides
+    image_size = 256
+    image_batch = torch.rand(2, 3, image_size, image_size)
     box_batch = torch.tensor(
         [
             [10, 20, 30, 40],
             [10, 20, 30, 40],
         ]
-    ).float().unsqueeze(1)
-    masks = mask_yolo.local_mask_branch(box_batch, features)
+    ).float()
+    feats = mask_yolo.feats(image_batch)
+    mask_feats = mask_yolo.mask_feats(feats)
+    masks = mask_yolo.local_mask_branch(box_batch, mask_feats)
 
 
 def test_criterion(

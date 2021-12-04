@@ -177,9 +177,7 @@ class MaskYolo(nn.Module):
         self.reductions = self.neck.reductions
         self.strides = self.neck.reductions
         self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
-        self.mask_strides = self.strides[
-            self.mask_feat_range[0] : self.mask_feat_range[1]
-        ]
+        self.mask_stride = self.strides[self.mask_feat_range[0]]
         self.box_head = YoloxHead(
             in_channels=neck.out_channels[
                 self.box_feat_range[0] : self.box_feat_range[1]
@@ -187,7 +185,9 @@ class MaskYolo(nn.Module):
             num_classes=num_classes,
         )
         self.local_mask_head = MaskHead(
-            in_channels=sum(neck.out_channels), out_channels=1
+            in_channels=sum(
+                neck.out_channels[self.mask_feat_range[0]:self.mask_feat_range[1]]
+            ), out_channels=1
         )
         self.merge_level = MergeLevel(strides=self.box_strides)
         self.to_boxes = ToBoxes(strides=self.box_strides)
@@ -219,13 +219,17 @@ class MaskYolo(nn.Module):
     def box_feats(self, x: list[Tensor]) -> list[Tensor]:
         return x[self.box_feat_range[0] : self.box_feat_range[1]]
 
+    def mask_feats(self, x: list[Tensor]) -> list[Tensor]:
+        return x[self.mask_feat_range[0] : self.mask_feat_range[1]]
+
     def forward(self, image_batch: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         feats = self.feats(image_batch)
         box_feats = self.box_feats(feats)
         box_levels = self.box_branch(box_feats)
         yolo_batch = self.merge_level(box_levels)
         obj_batch, box_batch, cate_batch, label_batch = self.to_boxes(yolo_batch)
-        mask_batch = self.local_mask_branch(box_batch, feats)
+        mask_feats = self.mask_feats(feats)
+        mask_batch = self.local_mask_branch(box_batch, mask_feats)
         return obj_batch, box_batch, cate_batch, label_batch, mask_batch
 
 
@@ -288,7 +292,7 @@ class Criterion:
 
             # 2-stage
             pred_local_masks = self.model.local_mask_branch(
-                gt_boxes_batch[pos_idx], feats
+                gt_boxes_batch[pos_idx], self.model.mask_feats(feats)
             )
             local_mask_loss += self.local_mask_loss(
                 pred_local_masks, gt_local_mask_batch
@@ -316,7 +320,7 @@ class Criterion:
             device=device,
         )
         mask_size = self.model.mask_size
-        mask_stride = self.model.mask_strides[0]
+        mask_stride = self.model.mask_stride
 
         gt_local_mask_list = []
         for batch_idx, (gt_masks, gt_labels, pred_boxes) in enumerate(
