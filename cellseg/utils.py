@@ -21,6 +21,10 @@ def round_to(n: float, multiple: int = 8) -> int:
     return int(round(n / multiple) * multiple)
 
 
+def weighted_mean(x: Tensor, weights: Tensor, eps: float = 1e-6) -> Tensor:
+    return (x * weights).sum() / (weights.sum() + eps)
+
+
 class ToDevice:
     def __init__(
         self,

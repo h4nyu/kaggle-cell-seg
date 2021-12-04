@@ -179,9 +179,6 @@ class MaskHead(nn.Module):
             )
         )
         self.sam = SpatialAttention(in_channels=width)
-        self.deconv = nn.ConvTranspose2d(
-            in_channels=width, out_channels=width, kernel_size=2, stride=2, bias=False
-        )
         self.act = nn.Mish(inplace=True)
         self.out_conv = nn.Conv2d(width, out_channels, kernel_size=1, bias=True)
         self._init_weights()
@@ -190,7 +187,6 @@ class MaskHead(nn.Module):
         for m in self.in_convs.modules():
             if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
                 weight_init.c2_msra_fill(m)
-        weight_init.c2_msra_fill(self.deconv)
         nn.init.normal_(self.out_conv.weight, std=0.001)
         if self.out_conv.bias is not None:
             nn.init.constant_(self.out_conv.bias, 0)
@@ -198,6 +194,5 @@ class MaskHead(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         h = self.in_convs(x)
         h = self.sam(h)
-        h = self.deconv(h)
         h = self.act(h)
         return self.out_conv(h)

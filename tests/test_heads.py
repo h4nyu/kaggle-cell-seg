@@ -76,4 +76,4 @@ def test_mask_head() -> None:
     inputs = torch.rand(2, in_channels, size, size)
     head = MaskHead(in_channels=in_channels, out_channels=out_channels, depth=2)
     outs = head(inputs)
-    assert outs.shape == (2, out_channels, size * 2, size * 2)
+    assert outs.shape == (2, out_channels, size, size)
