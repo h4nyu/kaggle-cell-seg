@@ -75,5 +75,5 @@ def test_criterion(
     mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor]]
 ) -> None:
     criterion = Criterion(model=mask_yolo)
-    images = torch.rand(1, 3, 128, 128)
+    images = torch.rand(4, 3, 128, 128)
     criterion(inputs=(images,), targets=targets)
