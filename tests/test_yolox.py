@@ -11,18 +11,20 @@ def mask_yolo() -> MaskYolo:
     backbone = EfficientNetFPN("efficientnet-b0")
     num_classes = 2
     mask_size = 16
-    top_fpn_level = 4
+    box_feat_range = (2, 5)
+    mask_feat_range = (0, 3)
     neck = CSPNeck(
-        in_channels=backbone.out_channels[:top_fpn_level],
-        out_channels=backbone.out_channels[:top_fpn_level],
-        reductions=backbone.reductions[:top_fpn_level],
+        in_channels=backbone.out_channels,
+        out_channels=backbone.out_channels,
+        reductions=backbone.reductions,
     )
     return MaskYolo(
         backbone=backbone,
         neck=neck,
         mask_size=mask_size,
         num_classes=num_classes,
-        top_fpn_level=top_fpn_level,
+        box_feat_range=box_feat_range,
+        mask_feat_range=mask_feat_range,
     )
 
 
