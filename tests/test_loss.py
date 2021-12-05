@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.loss import DiceLoss, FocalLoss
+from cellseg.loss import DiceLoss, FocalLoss, DIoULoss
 
 
 @pytest.mark.parametrize(
@@ -32,3 +32,19 @@ def test_dice_loss(factor: float, expected: float) -> None:
     targets = torch.ones(1, size, size)
     res = loss(inputs, targets)
     assert round(res.item(), 1) == expected
+
+
+def test_diouloss() -> None:
+    fn = DIoULoss()
+    pred_boxes = torch.tensor(
+        [
+            [0.2, 0.2, 0.3, 0.3],
+            [0.2, 0.2, 0.3, 0.3],
+        ]
+    )
+    tgt_boxes = torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
+    res = fn(
+        pred_boxes,
+        tgt_boxes,
+    )
+    assert (res - 0).abs() < 1e-7

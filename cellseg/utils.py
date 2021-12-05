@@ -21,6 +21,10 @@ def round_to(n: float, multiple: int = 8) -> int:
     return int(round(n / multiple) * multiple)
 
 
+def weighted_mean(x: Tensor, weights: Tensor, eps: float = 1e-6) -> Tensor:
+    return (x * weights).sum() / (weights.sum() + eps)
+
+
 class ToDevice:
     def __init__(
         self,
@@ -42,6 +46,14 @@ def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, T
         torch.arange(w, dtype=dtype),
     )
     return (grid_y, grid_x)
+
+
+def grid_points(
+    h: int, w: int, dtype: Optional[torch.dtype] = None
+) -> Tensor:  # [h*w, 2]
+    return torch.stack(
+        torch.meshgrid([torch.arange(h), torch.arange(w)])[::-1], dim=2
+    ).reshape(h * w, 2)
 
 
 T = TypeVar("T", bound=nn.Module)

@@ -59,7 +59,6 @@ def test_merge_masks() -> None:
     mask2[1, 1] = 1
     batch = [torch.stack([mask0, mask1]), torch.stack([mask2])]
     merged_masks = merge(batch, patch_grid)
-    print(merged_masks)
     assert len(merged_masks) == 3
     assert merged_masks[0, 4, 4] == 1
     assert merged_masks[1, 5, 6] == 1

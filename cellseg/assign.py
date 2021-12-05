@@ -20,6 +20,7 @@ class ClosestAssign:
         anchor_count = anchor.shape[0]
         if gt_count == 0:
             return torch.zeros((0, gt_count), device=device)
+        topk = min(anchor_count, self.topk)
         anchor_ctr = (
             ((anchor[:, :2] + anchor[:, 2:]) / 2.0)
             .view(anchor_count, 1, 2)
@@ -31,7 +32,7 @@ class ClosestAssign:
         )
         gt_ctr = gt[:, :2]
         matrix = ((anchor_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
-        _, matched_idx = torch.topk(matrix, self.topk, dim=0, largest=False)
+        _, matched_idx = torch.topk(matrix, topk, dim=0, largest=False)
         return matched_idx.t()
 
 
@@ -49,24 +50,24 @@ class ATSS:
 
     def __call__(
         self,
-        anchors: Tensor,
-        gt: Tensor,
-    ) -> Tensor:
-        device = anchors.device
-        matched_ids = self.assign(anchors, gt)
+        pred_boxes: Tensor,
+        gt_boxes: Tensor,
+    ) -> Tensor:  # [~topk, [gt_index, anchor_index]]
+        device = pred_boxes.device
+        matched_ids = self.assign(pred_boxes, gt_boxes)
         gt_count, _ = matched_ids.shape
-        anchor_count, _ = anchors.shape
+        pred_count, _ = pred_boxes.shape
         pos_ids = torch.zeros(
             (
                 gt_count,
-                anchor_count,
+                pred_count,
             ),
             device=device,
         )
         for i in range(gt_count):
             ids = matched_ids[i]
-            matched_anchors = anchors[ids]
-            ious = box_iou(matched_anchors, gt[[i]]).view(-1)
+            matched_preds = pred_boxes[ids]
+            ious = box_iou(matched_preds, gt_boxes[[i]]).view(-1)
             m_iou = ious.mean()
             s_iou = ious.std()
             th = m_iou + s_iou
@@ -75,10 +76,6 @@ class ATSS:
 
 
 class IoUAssign:
-    """
-    Adaptive Training Sample Selection
-    """
-
     def __init__(
         self,
         threshold: float = 0.7,

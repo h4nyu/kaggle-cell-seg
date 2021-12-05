@@ -10,6 +10,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import masks_to_boxes, box_convert, roi_align
 from .utils import grid, draw_save, ToPatches, MergePatchedMasks
 from .backbones import FPNLike
+from .necks import NeckLike
 
 Batch = tuple[Tensor, list[Tensor], list[Tensor]]  # id, images, mask_batch, label_batch
 
@@ -18,6 +19,7 @@ class CenterMask(nn.Module):
     def __init__(
         self,
         backbone: FPNLike,
+        neck: NeckLike,
         hidden_channels: int,
         mask_size: int,
         category_feat_range: tuple[int, int],
@@ -26,58 +28,55 @@ class CenterMask(nn.Module):
         super().__init__()
         self.category_feat_range = category_feat_range
         self.backbone = backbone
+        self.neck = neck
         self.category_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=num_classes,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
-            reductions=backbone.reductions[
+            out_channels=num_classes,
+            in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=False,
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
         self.size_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=2,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
-            reductions=backbone.reductions[
+            out_channels=2,
+            in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=False,
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
         self.offset_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=2,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
-            reductions=backbone.reductions[
+            out_channels=2,
+            in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=False,
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
         self.sliency_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=1,
-            channels=backbone.channels,
-            reductions=backbone.reductions,
-            use_cord=False,
+            out_channels=1,
+            in_channels=backbone.out_channels,
+            strides=backbone.strides,
         )
 
         self.mask_head = Head(
             hidden_channels=hidden_channels,
-            num_classes=mask_size ** 2,
-            channels=backbone.channels[category_feat_range[0] : category_feat_range[1]],
-            reductions=backbone.reductions[
+            out_channels=mask_size ** 2,
+            in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            use_cord=False,
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
     def forward(
         self, image_batch: Tensor
     ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         features = self.backbone(image_batch)
+        features = self.neck(features)
         category_feats = features[
             self.category_feat_range[0] : self.category_feat_range[1]
         ]
@@ -101,7 +100,7 @@ class BatchAdaptor:
         self.num_classes = num_classes
         self.mask_size = mask_size
         self.patch_size = patch_size
-        self.reduction = patch_size // grid_size
+        self.stride = patch_size // grid_size
         self.mask_area = mask_size ** 2
 
     def mkgrid(
@@ -141,15 +140,15 @@ class BatchAdaptor:
         boxes = masks_to_boxes(masks)
         cxcy_boxes = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
         for mask, label, box, cxcywh in zip(masks, labels, boxes.long(), cxcy_boxes):
-            cxcy_index = (cxcywh[:2] / self.reduction).long()
+            cxcy_index = (cxcywh[:2] / self.stride).long()
             category_grid[label, cxcy_index[1], cxcy_index[0]] = 1
             size_grid[:, cxcy_index[1], cxcy_index[0]] = cxcywh[2:]
             offset_grid[:, cxcy_index[1], cxcy_index[0]] = (
-                cxcywh[:2] / self.reduction - cxcy_index
+                cxcywh[:2] / self.stride - cxcy_index
             )
             mask_grid[:, cxcy_index[1], cxcy_index[0]] = F.interpolate(
-                mask[box[1] : box[3], box[0] : box[2]]
-                .view(1, 1, cxcywh[3].long(), cxcywh[2].long())
+                mask[box[1] : box[3] + 1, box[0] : box[2] + 1]
+                .view(1, 1, cxcywh[3].long() + 1, cxcywh[2].long() + 1)
                 .float(),
                 size=(self.mask_size, self.mask_size),
             ).view(self.mask_area)
@@ -264,7 +263,9 @@ class ToMasks:
         category_threshold: float = 0.5,
         mask_threshold: float = 0.5,
         kernel_size: int = 3,
+        use_global_mask: bool = True,
     ) -> None:
+        self.use_global_mask = use_global_mask
         self.category_threshold = category_threshold
         self.mask_threshold = mask_threshold
         self.max_pool = nn.MaxPool2d(
@@ -285,7 +286,7 @@ class ToMasks:
         batch_size, _, grid_size = category_grids.shape[:3]
         patch_size = sliency_masks.shape[2]
         mask_size = int(math.sqrt(mask_grids.shape[1]))
-        reduction = patch_size // grid_size
+        stride = patch_size // grid_size
         category_grids = category_grids * (
             (category_grids > self.category_threshold)
             & (self.max_pool(category_grids) == category_grids)
@@ -312,7 +313,7 @@ class ToMasks:
                 batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]
             ].t()
             cxcywhs = torch.cat(
-                [(cxcy_index + cxcy_offsets) * reduction, box_sizes * patch_size], dim=1
+                [(cxcy_index + cxcy_offsets) * stride, box_sizes * patch_size], dim=1
             )
             boxes = (
                 box_convert(cxcywhs, in_fmt="cxcywh", out_fmt="xyxy")
@@ -337,7 +338,10 @@ class ToMasks:
                 crop_mask[:, b[1] : b[3] + 1, b[0] : b[2] + 1] = gm.view(
                     1, *gm.shape[2:]
                 )
-                masks[i] = sliency_mask * crop_mask
+                if self.use_global_mask:
+                    masks[i] = sliency_mask * crop_mask
+                else:
+                    masks[i] = crop_mask
 
             masks = masks > self.mask_threshold
             empty_filter = masks.sum(dim=[1, 2]) > 0

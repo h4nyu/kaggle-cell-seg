@@ -20,6 +20,7 @@ from cellseg.solo import (
     MatrixNms,
     PatchInferenceStep,
 )
+from cellseg.necks import CSPNeck
 from cellseg.utils import draw_save, ToPatches
 
 
@@ -142,6 +143,11 @@ def test_to_masks() -> None:
 def test_solo() -> None:
     image_batch = torch.rand(1, 3, 512, 512)
     backbone = EfficientNetFPN("efficientnet-b2")
+    neck = CSPNeck(
+        in_channels=backbone.out_channels,
+        out_channels=backbone.out_channels,
+        strides=backbone.strides,
+    )
     category_feat_range = (4, 6)
     mask_feat_range = (0, 4)
     num_classes = 2
@@ -154,6 +160,7 @@ def test_solo() -> None:
         grid_size=grid_size,
         category_feat_range=category_feat_range,
         mask_feat_range=mask_feat_range,
+        neck=neck,
     )
     category_grid, size_grid, all_masks = solo(image_batch)
     assert size_grid.shape == (1, 4, grid_size, grid_size)
@@ -216,6 +223,11 @@ def test_inference_step() -> None:
     num_classes = 1
     grid_size = 16
     patch_size = 128
+    neck = CSPNeck(
+        in_channels=backbone.out_channels,
+        out_channels=backbone.out_channels,
+        strides=backbone.strides,
+    )
 
     solo = Solo(
         num_classes=num_classes,
@@ -224,6 +236,7 @@ def test_inference_step() -> None:
         grid_size=grid_size,
         category_feat_range=category_feat_range,
         mask_feat_range=mask_feat_range,
+        neck=neck,
     )
     to_masks = ToMasks(patch_size=patch_size)
     batch_adaptor = BatchAdaptor(
