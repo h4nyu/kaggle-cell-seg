@@ -59,7 +59,7 @@ dataset:
 criterion:
   obj_weight: 1.0
   box_weight: 1.0
-  cate_weight: 1.0
+  cate_weight: 0.0
   local_mask_weight: 1.0
 
 optimizer:
@@ -76,10 +76,10 @@ scheduler:
 train_loader:
   batch_size: 4
   shuffle: true
-  num_workers: 4
+  num_workers: 3
   drop_last: true
 
 validation_loader:
   batch_size: 4
   shuffle: false
-  num_workers: 4
+  num_workers: 3

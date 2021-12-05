@@ -45,7 +45,7 @@ def targets() -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
 def test_mask_yolo(mask_yolo: MaskYolo) -> None:
     image_size = 256
     images = torch.rand(2, 3, image_size, image_size)
-    masks = mask_yolo(images)
+    mask_batch = mask_yolo(images)
 
 
 def test_mask_yolo_box_branch(mask_yolo: MaskYolo) -> None:
@@ -53,8 +53,9 @@ def test_mask_yolo_box_branch(mask_yolo: MaskYolo) -> None:
     images = torch.rand(2, 3, image_size, image_size)
     feats = mask_yolo.feats(images)
     box_feats = mask_yolo.box_feats(feats)
-    res = mask_yolo.box_branch(box_feats)
-    assert len(res) == 2
+    yolo_batch, anchor_batch = mask_yolo.box_branch(box_feats)
+    assert len(yolo_batch) == len(anchor_batch) == 2
+    assert yolo_batch.shape[:2] == anchor_batch.shape[:2]
 
 
 def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
@@ -73,7 +74,7 @@ def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
             [
                 [10, 20, 30, 40],
             ],
-        ).float()
+        ).float(),
     ]
     feats = mask_yolo.feats(image_batch)
     mask_feats = mask_yolo.mask_feats(feats)
@@ -86,3 +87,25 @@ def test_criterion(
     criterion = Criterion(model=mask_yolo)
     images = torch.rand(2, 3, 128, 128)
     criterion(inputs=(images,), targets=targets)
+
+
+def test_forward(
+    mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor], list[Tensor]]
+) -> None:
+    images = torch.rand(2, 3, 128, 128)
+    mask_yolo(images)
+
+
+def test_to_boxes(
+    mask_yolo: MaskYolo,
+) -> None:
+    yolo_batch = torch.zeros((1, 1, 7))
+    yolo_batch[0, 0, :2] = torch.tensor([15.0, 30.0])
+    yolo_batch[0, 0, 2:4] = torch.tensor([10.0, 20.0])
+    yolo_batch[0, 0, 4] = 0.9
+    yolo_batch[0, 0, 5:] = torch.tensor([10.0, 20.0])
+    score_batch, box_batch, lable_batch = mask_yolo.to_boxes(yolo_batch)
+    assert len(score_batch) == len(box_batch) == len(lable_batch)
+    assert score_batch[0][0] == 0.9
+    assert box_batch[0][0].tolist() == [10.0, 20.0, 20.0, 40.0]
+    assert lable_batch[0][0] == 1
