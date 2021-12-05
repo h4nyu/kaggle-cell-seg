@@ -14,7 +14,7 @@ class ClosestAssign:
     def __init__(self, topk: int) -> None:
         self.topk = topk
 
-    def __call__(self, anchor: Tensor, gt: Tensor) -> Tensor: 
+    def __call__(self, anchor: Tensor, gt: Tensor) -> Tensor:
         device = anchor.device
         gt_count = gt.shape[0]
         anchor_count = anchor.shape[0]
@@ -52,7 +52,7 @@ class ATSS:
         self,
         pred_boxes: Tensor,
         gt_boxes: Tensor,
-    ) -> Tensor:#[~topk, [gt_index, anchor_index]]
+    ) -> Tensor:  # [~topk, [gt_index, anchor_index]]
         device = pred_boxes.device
         matched_ids = self.assign(pred_boxes, gt_boxes)
         gt_count, _ = matched_ids.shape

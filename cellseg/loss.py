@@ -152,6 +152,7 @@ class DIoULoss:
         ctr_loss = torch.pow(s_ctr - t_ctr, 2).sum(dim=-1) / torch.pow(
             (rb - lt).clamp(min=0), 2
         ).sum(dim=-1)
+        print(ctr_loss)
         if self.size_average:
             ctr_loss = ctr_loss.mean()
 

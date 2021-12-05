@@ -8,7 +8,7 @@ from .blocks import ConvBnAct, DefaultActivation
 from .backbones import FPNLike
 from .necks import NeckLike
 from .heads import MaskHead
-from .utils import grid_points,draw_save
+from .utils import grid_points, draw_save
 from .loss import DIoULoss, FocalLoss
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
 from .assign import ATSS
@@ -285,7 +285,7 @@ class Criterion:
         box_weight: float = 1.0,
         cate_weight: float = 1.0,
         local_mask_weight: float = 1.0,
-        assign_topk:int=9,
+        assign_topk: int = 9,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -322,7 +322,8 @@ class Criterion:
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
         )
-        if pos_idx.sum() > 0:
+        matched_count = pos_idx.sum()
+        if matched_count > 0:
             box_loss += self.box_loss(
                 box_convert(
                     pred_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
@@ -377,7 +378,7 @@ class Criterion:
         ):
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
-                box_convert(pred_yolo[...,:4], in_fmt="cxcywh", out_fmt="xyxy"),
+                box_convert(pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"),
                 gt_boxes,
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]

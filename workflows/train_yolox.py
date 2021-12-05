@@ -54,6 +54,7 @@ def main(cfg: DictConfig) -> None:
         patch_size=cfg.patch_size,
         score_threshold=cfg.score_threshold,
         mask_threshold=cfg.mask_threshold,
+        box_iou_threshold=cfg.box_iou_threshold,
     )
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)

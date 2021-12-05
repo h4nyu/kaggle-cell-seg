@@ -5,6 +5,7 @@ from cellseg.yolox import MaskYolo, Criterion
 from torchvision.ops import masks_to_boxes
 from cellseg.backbones import EfficientNetFPN
 from cellseg.necks import CSPNeck
+from cellseg.utils import draw_save
 
 
 @pytest.fixture
@@ -97,8 +98,15 @@ def test_criterion(
 def test_forward(
     mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor], list[Tensor]]
 ) -> None:
-    images = torch.rand(2, 3, 128, 128)
-    mask_yolo(images)
+    images = torch.rand(1, 3, 256, 256)
+    mask_yolo.score_threshold = 0.0
+    score_batch, lable_batch, box_batch, mask_batch = mask_yolo(images)
+    print(mask_batch[0].shape)
+    draw_save(
+        "/app/test_outputs/yolox-forward.png",
+        images[0],
+        mask_batch[0][:10],
+    )
 
 
 def test_to_boxes(

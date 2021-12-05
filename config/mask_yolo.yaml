@@ -20,6 +20,8 @@ box_feat_range: [3, 6]
 mask_feat_range: [0, 4]
 hidden_channels: 64
 score_threshold: 0.5
+box_iou_threshold: 0.5
+mask_threshold: 0.5
 
 
 # to masks
@@ -58,10 +60,10 @@ dataset:
 
 criterion:
   obj_weight: 5.0
-  box_weight: 1.0
+  box_weight: 0.5
   cate_weight: 0.0
-  local_mask_weight: 1.0
-  assign_topk: 27
+  local_mask_weight: 0.5
+  assign_topk: 19
 
 optimizer:
   lr: 1e-3
