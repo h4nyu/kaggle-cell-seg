@@ -5,7 +5,6 @@ device: cuda
 seed: &seed 0 
 log_keys:
   - loss
-  - cate_loss
   - obj_loss
   - box_loss
   - local_mask_loss
