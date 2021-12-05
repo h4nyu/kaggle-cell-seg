@@ -207,6 +207,7 @@ class MaskYolo(nn.Module):
     def mask_feats(self, x: list[Tensor]) -> list[Tensor]:
         return x[self.mask_feat_range[0] : self.mask_feat_range[1]]
 
+    @torch.no_grad()
     def to_boxes(
         self, yolo_batch: Tensor
     ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
@@ -235,6 +236,7 @@ class MaskYolo(nn.Module):
             lable_batch.append(lables[nms_index])
         return score_batch, box_batch, lable_batch
 
+    @torch.no_grad()
     def to_masks(
         self, all_local_masks: Tensor, box_batch: list[Tensor]
     ) -> list[Tensor]:
