@@ -392,8 +392,8 @@ class Criterion:
         ):
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
-                gt_boxes,
                 anchor_boxes,
+                gt_boxes,
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
