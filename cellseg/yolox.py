@@ -120,6 +120,7 @@ class MaskYolo(nn.Module):
         num_classes: int,
         mask_size: int,
         patch_size: int,
+        box_limit: int = 1000,
         box_iou_threshold: float = 0.5,
         score_threshold: float = 0.5,
         mask_threshold: float = 0.5,
@@ -227,7 +228,7 @@ class MaskYolo(nn.Module):
                 scores=scores,
                 idxs=lables,
                 iou_threshold=self.box_iou_threshold,
-            )
+            )[:self.box_limit]
             box_batch.append(boxes[nms_index])
             score_batch.append(scores[nms_index])
             lable_batch.append(lables[nms_index])
