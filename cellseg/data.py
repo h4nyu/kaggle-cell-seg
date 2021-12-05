@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import StratifiedKFold
+from torchvision.ops import masks_to_boxes
 import albumentations as A
 
 
@@ -54,6 +55,7 @@ TrainItem = TypedDict(
         "id": str,
         "image": Tensor,
         "masks": Tensor,
+        "boxes": Tensor,
         "labels": Tensor,
     },
 )
@@ -101,17 +103,22 @@ class Tranform:
         return self.transform(*args, **kargs)
 
 
-def collate_fn(batch: list[TrainItem]) -> tuple[Tensor, list[Tensor], list[Tensor]]:
+def collate_fn(
+    batch: list[TrainItem],
+) -> tuple[Tensor, list[Tensor], list[Tensor], list[Tensor]]:
     images: list[Tensor] = []
     mask_batch: list[Tensor] = []
+    box_batch: list[Tensor] = []
     label_batch: list[Tensor] = []
     for row in batch:
         images.append(row["image"])
         mask_batch.append(row["masks"])
+        box_batch.append(row["boxes"])
         label_batch.append(row["labels"])
     return (
         torch.stack(images),
         mask_batch,
+        box_batch,
         label_batch,
     )
 
@@ -153,6 +160,7 @@ class CellTrainDataset(Dataset):
         masks = torch.stack([torch.from_numpy(m) for m in transformed["masks"]]).bool()
         empty_filter = masks.sum(dim=[1, 2]) > self.smallest_area
         masks = masks[empty_filter]
+        boxes = masks_to_boxes(masks)
         labels = torch.from_numpy(transformed["labels"]).long()
         labels = labels[empty_filter]
         return dict(
@@ -160,6 +168,7 @@ class CellTrainDataset(Dataset):
             image=image,
             masks=masks,
             labels=labels,
+            boxes=boxes,
         )
 
 

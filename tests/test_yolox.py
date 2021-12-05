@@ -2,6 +2,7 @@ import pytest
 import torch
 from torch import Tensor
 from cellseg.yolox import MaskYolo, Criterion
+from torchvision.ops import masks_to_boxes
 from cellseg.backbones import EfficientNetFPN
 from cellseg.necks import CSPNeck
 
@@ -29,15 +30,16 @@ def mask_yolo() -> MaskYolo:
 
 
 @pytest.fixture
-def targets() -> tuple[list[Tensor], list[Tensor]]:
+def targets() -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
     masks0 = torch.zeros(1, 128, 128, dtype=torch.bool)
     masks0[0, 10:20, 30:40] = True
     masks1 = torch.zeros(2, 128, 128, dtype=torch.bool)
     masks1[0, 10:20, 30:40] = True
     masks1[1, 20:30, 30:40] = True
     mask_batch = [masks0, masks1]
+    box_batch = [masks_to_boxes(m) for m in mask_batch]
     label_batch = [torch.zeros(len(m)).long() for m in mask_batch]
-    return mask_batch, label_batch
+    return mask_batch, box_batch, label_batch
 
 
 def test_mask_yolo(mask_yolo: MaskYolo) -> None:
@@ -62,12 +64,19 @@ def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
     strides = mask_yolo.strides
     image_size = 256
     image_batch = torch.rand(2, 3, image_size, image_size)
-    box_batch = torch.tensor(
-        [
-            [10, 20, 30, 40],
-            [10, 20, 30, 40],
-        ]
-    ).float()
+    box_batch = [
+        torch.tensor(
+            [
+                [10, 20, 30, 40],
+                [10, 20, 30, 40],
+            ],
+        ).float(),
+        torch.tensor(
+            [
+                [10, 20, 30, 40],
+            ],
+        ).float()
+    ]
     feats = mask_yolo.feats(image_batch)
     mask_feats = mask_yolo.mask_feats(feats)
     masks = mask_yolo.local_mask_branch(box_batch, mask_feats)
