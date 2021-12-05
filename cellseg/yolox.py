@@ -134,8 +134,7 @@ class MaskYolo(nn.Module):
         self.box_feat_range = box_feat_range
         self.mask_feat_range = mask_feat_range
         self.num_classes = num_classes
-        self.reductions = self.neck.reductions
-        self.strides = self.neck.reductions
+        self.strides = self.neck.strides
         self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
         self.mask_stride = self.strides[self.mask_feat_range[0]]
         self.box_head = YoloxHead(

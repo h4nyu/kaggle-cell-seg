@@ -10,12 +10,12 @@ def test_efficient_net_fpn(name: str) -> None:
     backbone = EfficientNetFPN(name)
     features = backbone(image)
     expand_len = 7
-    expected_sizes = [p1_size // s for s in backbone.reductions]
+    expected_sizes = [p1_size // s for s in backbone.strides]
     assert (
         len(features)
         == expand_len
         == len(backbone.out_channels)
-        == len(backbone.reductions)
+        == len(backbone.strides)
     )
     for f, s, c in zip(features, expected_sizes, backbone.out_channels):
         assert f.size(1) == c

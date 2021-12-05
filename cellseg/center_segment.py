@@ -198,15 +198,13 @@ class CenterSegment(nn.Module):
             in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            reductions=backbone.reductions[
-                category_feat_range[0] : category_feat_range[1]
-            ],
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
         self.segmentaition_head = Head(
             hidden_channels=hidden_channels,
             out_channels=1,
             in_channels=[3],
-            reductions=[1],
+            strides=[1],
         )
         self.center_crop = CenterCrop(box_size=box_size)
         self.grids_to_boxes = GridsToBoxes(box_size=box_size)

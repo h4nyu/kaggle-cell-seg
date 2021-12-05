@@ -14,7 +14,7 @@ from .blocks import (
 
 class NeckLike(Protocol):
     out_channels: list[int]
-    reductions: list[int]
+    strides: list[int]
 
     def __call__(self, x: list[Tensor]) -> list[Tensor]:
         ...
@@ -25,18 +25,18 @@ class CSPNeck(nn.Module):
         self,
         in_channels: list[int],
         out_channels: list[int],
-        reductions: list[int],
+        strides: list[int],
         depth: int = 2,
         act: Callable[[Tensor], Tensor] = DefaultActivation,
     ):
         super().__init__()
         self.out_channels = out_channels
-        self.reductions = reductions
+        self.strides = strides
         self.spp_block = CSPSPPBlock(in_channels[-1], in_channels[-1] // 2, act=act)
 
         self.up_blocks = nn.ModuleList()  # low-res to high-res
         for idx in range(len(in_channels) - 1):
-            scale_factor = reductions[-idx - 1] // reductions[-idx - 2]
+            scale_factor = strides[-idx - 1] // strides[-idx - 2]
             if scale_factor == 2:
                 self.up_blocks.append(
                     CSPUpBlock(
@@ -64,7 +64,7 @@ class CSPNeck(nn.Module):
 
         self.down_blocks = nn.ModuleList()
         for idx in range(len(in_channels) - 1):
-            scale_factor = reductions[idx + 1] // reductions[idx]
+            scale_factor = strides[idx + 1] // strides[idx]
             if scale_factor == 2:
                 self.down_blocks.append(
                     CSPDownBlock(

@@ -19,7 +19,7 @@ def mask_yolo() -> MaskYolo:
     neck = CSPNeck(
         in_channels=backbone.out_channels,
         out_channels=backbone.out_channels,
-        reductions=backbone.reductions,
+        strides=backbone.strides,
     )
     return MaskYolo(
         backbone=backbone,

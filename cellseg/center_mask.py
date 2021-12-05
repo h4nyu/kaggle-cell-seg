@@ -35,9 +35,7 @@ class CenterMask(nn.Module):
             in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            reductions=backbone.reductions[
-                category_feat_range[0] : category_feat_range[1]
-            ],
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
         self.size_head = Head(
@@ -46,9 +44,7 @@ class CenterMask(nn.Module):
             in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            reductions=backbone.reductions[
-                category_feat_range[0] : category_feat_range[1]
-            ],
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
         self.offset_head = Head(
@@ -57,16 +53,14 @@ class CenterMask(nn.Module):
             in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            reductions=backbone.reductions[
-                category_feat_range[0] : category_feat_range[1]
-            ],
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
         self.sliency_head = Head(
             hidden_channels=hidden_channels,
             out_channels=1,
             in_channels=backbone.out_channels,
-            reductions=backbone.reductions,
+            strides=backbone.strides,
         )
 
         self.mask_head = Head(
@@ -75,9 +69,7 @@ class CenterMask(nn.Module):
             in_channels=backbone.out_channels[
                 category_feat_range[0] : category_feat_range[1]
             ],
-            reductions=backbone.reductions[
-                category_feat_range[0] : category_feat_range[1]
-            ],
+            strides=backbone.strides[category_feat_range[0] : category_feat_range[1]],
         )
 
     def forward(
@@ -108,7 +100,7 @@ class BatchAdaptor:
         self.num_classes = num_classes
         self.mask_size = mask_size
         self.patch_size = patch_size
-        self.reduction = patch_size // grid_size
+        self.stride = patch_size // grid_size
         self.mask_area = mask_size ** 2
 
     def mkgrid(
@@ -148,11 +140,11 @@ class BatchAdaptor:
         boxes = masks_to_boxes(masks)
         cxcy_boxes = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
         for mask, label, box, cxcywh in zip(masks, labels, boxes.long(), cxcy_boxes):
-            cxcy_index = (cxcywh[:2] / self.reduction).long()
+            cxcy_index = (cxcywh[:2] / self.stride).long()
             category_grid[label, cxcy_index[1], cxcy_index[0]] = 1
             size_grid[:, cxcy_index[1], cxcy_index[0]] = cxcywh[2:]
             offset_grid[:, cxcy_index[1], cxcy_index[0]] = (
-                cxcywh[:2] / self.reduction - cxcy_index
+                cxcywh[:2] / self.stride - cxcy_index
             )
             mask_grid[:, cxcy_index[1], cxcy_index[0]] = F.interpolate(
                 mask[box[1] : box[3] + 1, box[0] : box[2] + 1]
@@ -294,7 +286,7 @@ class ToMasks:
         batch_size, _, grid_size = category_grids.shape[:3]
         patch_size = sliency_masks.shape[2]
         mask_size = int(math.sqrt(mask_grids.shape[1]))
-        reduction = patch_size // grid_size
+        stride = patch_size // grid_size
         category_grids = category_grids * (
             (category_grids > self.category_threshold)
             & (self.max_pool(category_grids) == category_grids)
@@ -321,7 +313,7 @@ class ToMasks:
                 batch_idx, :, cxcy_index[:, 1], cxcy_index[:, 0]
             ].t()
             cxcywhs = torch.cat(
-                [(cxcy_index + cxcy_offsets) * reduction, box_sizes * patch_size], dim=1
+                [(cxcy_index + cxcy_offsets) * stride, box_sizes * patch_size], dim=1
             )
             boxes = (
                 box_convert(cxcywhs, in_fmt="cxcywh", out_fmt="xyxy")

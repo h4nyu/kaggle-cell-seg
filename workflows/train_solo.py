@@ -45,7 +45,7 @@ def main(cfg: DictConfig) -> None:
     neck = CSPNeck(
         in_channels=backbone.out_channels,
         out_channels=backbone.out_channels,
-        reductions=backbone.reductions,
+        strides=backbone.strides,
     )
     model = Solo(**cfg.model, backbone=backbone, neck=neck)
     model, score = checkpoint.load_if_exists(model)

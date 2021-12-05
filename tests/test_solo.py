@@ -146,7 +146,7 @@ def test_solo() -> None:
     neck = CSPNeck(
         in_channels=backbone.out_channels,
         out_channels=backbone.out_channels,
-        reductions=backbone.reductions,
+        strides=backbone.strides,
     )
     category_feat_range = (4, 6)
     mask_feat_range = (0, 4)
@@ -226,7 +226,7 @@ def test_inference_step() -> None:
     neck = CSPNeck(
         in_channels=backbone.out_channels,
         out_channels=backbone.out_channels,
-        reductions=backbone.reductions,
+        strides=backbone.strides,
     )
 
     solo = Solo(

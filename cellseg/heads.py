@@ -21,7 +21,7 @@ class Head(nn.Module):
         hidden_channels: int,
         out_channels: int,
         in_channels: list[int] = [],
-        reductions: list[int] = [],
+        strides: list[int] = [],
         coord_level: Optional[int] = False,
     ) -> None:
         super().__init__()
@@ -42,8 +42,8 @@ class Head(nn.Module):
             )
 
         self.enable_coords = []
-        for idx in range(len(reductions) - 1):
-            scale_factor = reductions[idx + 1] // reductions[idx]
+        for idx in range(len(strides) - 1):
+            scale_factor = strides[idx + 1] // strides[idx]
             if scale_factor == 2:
                 self.upsamples.append(
                     nn.ConvTranspose2d(
@@ -105,7 +105,7 @@ class CSPUpHead(nn.Module):
         hidden_channels: int,
         out_channels: int,
         in_channels: list[int] = [],
-        reductions: list[int] = [],
+        strides: list[int] = [],
         depth: int = 2,
         use_cord: bool = False,
         act: Callable = DefaultActivation,
@@ -121,7 +121,7 @@ class CSPUpHead(nn.Module):
         self.coord_conv = CoordConv()
         coord_offset = 2 if use_cord else 0
         for idx in range(len(in_channels) - 1):
-            scale_factor = reductions[-idx - 1] // reductions[-idx - 2]
+            scale_factor = strides[-idx - 1] // strides[-idx - 2]
             if scale_factor == 2:
                 self.up_blocks.append(
                     CSPUpBlock(

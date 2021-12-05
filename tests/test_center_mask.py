@@ -14,7 +14,7 @@ def test_model() -> None:
     neck = CSPNeck(
         in_channels=backbone.out_channels,
         out_channels=backbone.out_channels,
-        reductions=backbone.reductions,
+        strides=backbone.strides,
     )
 
     model = CenterMask(
