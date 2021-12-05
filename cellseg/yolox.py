@@ -387,18 +387,16 @@ class TrainStep:
     def __init__(
         self,
         criterion: Criterion,
-        model: MaskYolo,
         optimizer: Any,
         use_amp: bool = True,
     ) -> None:
         self.criterion = criterion
-        self.model = model
         self.optimizer = optimizer
         self.use_amp = use_amp
         self.scaler = GradScaler()
 
     def __call__(self, batch: Batch) -> dict[str, float]:
-        self.model.train()
+        self.criterion.model.train()
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
             images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
@@ -413,6 +411,35 @@ class TrainStep:
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
+
+        return dict(
+            loss=loss.item(),
+            obj_loss=obj_loss.item(),
+            box_loss=box_loss.item(),
+            cate_loss=cate_loss.item(),
+            local_mask_loss=local_mask_loss.item(),
+        )
+
+
+class ValidationStep:
+    def __init__(
+        self,
+        criterion: Criterion,
+    ) -> None:
+        self.criterion = criterion
+
+    @torch.no_grad()
+    def __call__(self, batch: Batch) -> dict[str, float]:
+        self.criterion.model.eval()
+        images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
+        loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
+            (images,),
+            (
+                gt_mask_batch,
+                gt_box_batch,
+                gt_label_batch,
+            ),
+        )
 
         return dict(
             loss=loss.item(),

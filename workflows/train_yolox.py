@@ -8,8 +8,9 @@ from logging import getLogger, FileHandler
 import torch.optim as optim
 from cellseg.yolox import (
     MaskYolo,
-    TrainStep,
     Criterion,
+    TrainStep,
+    ValidationStep,
 )
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
@@ -57,9 +58,11 @@ def main(cfg: DictConfig) -> None:
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
     train_step = TrainStep(
         optimizer=optimizer,
-        model=model,
         criterion=criterion,
         use_amp=cfg.use_amp,
+    )
+    validation_step = ValidationStep(
+        criterion=criterion,
     )
     train_dataset = CellTrainDataset(
         **cfg.dataset,
@@ -93,8 +96,14 @@ def main(cfg: DictConfig) -> None:
             logger.info(f"train batch {train_log} ")
         logger.info(f"epoch train {train_reduer.value}")
         mask_ap = MaskAP(**cfg.mask_ap)
-        if score > train_reduer.value["loss"]:
-            score = checkpoint.save(model, train_reduer.value["loss"])
+        val_reduer = MeanReduceDict(keys=cfg.log_keys)
+        for batch in val_loader:
+            batch = to_device(*batch)
+            validation_log = validation_step(batch)
+            val_reduer.accumulate(validation_log)
+            logger.info(f"eval batch {validation_log} ")
+        if score > val_reduer.value["loss"]:
+            score = checkpoint.save(model, val_reduer.value["loss"])
             logger.info(f"save checkpoint")
         logger.info(f"epoch eval {score=} {train_reduer.value} {mask_ap.value=}")
 
