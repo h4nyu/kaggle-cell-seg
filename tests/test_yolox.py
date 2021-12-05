@@ -83,7 +83,7 @@ def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
 
 
 def test_criterion(
-    mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor]]
+    mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor], list[Tensor]]
 ) -> None:
     criterion = Criterion(model=mask_yolo)
     images = torch.rand(2, 3, 128, 128)

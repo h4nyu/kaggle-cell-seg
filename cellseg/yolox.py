@@ -112,22 +112,6 @@ class YoloxHead(nn.Module):
         return [m(x) for m, x in zip(self.heads, inputs)]
 
 
-class ToBoxes:
-    def __init__(
-        self,
-        strides: list[int],
-    ) -> None:
-        self.strides = strides
-
-    def __call__(self, yolo_batch: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
-        device = yolo_batch.device
-        box_batch = box_convert(yolo_batch[..., :4], in_fmt="cxcywh", out_fmt="xyxy")
-        obj_batch = yolo_batch[..., 4]
-        cate_batch = yolo_batch[..., 5:]
-        label_batch = cate_batch.argmax(-1)
-        return obj_batch, box_batch, cate_batch, label_batch
-
-
 class MaskYolo(nn.Module):
     def __init__(
         self,
@@ -161,9 +145,8 @@ class MaskYolo(nn.Module):
             ),
             out_channels=1,
         )
-        self.to_boxes = ToBoxes(strides=self.box_strides)
 
-    def box_branch(self, feats: list[Tensor]) -> list[Tensor]:
+    def box_branch(self, feats: list[Tensor]) -> Tensor:
         device = feats[0].device
         box_levels = self.box_head(feats)
         yolo_box_list = []
@@ -188,7 +171,7 @@ class MaskYolo(nn.Module):
         yolo_batch = torch.cat(yolo_box_list, dim=1)
         return yolo_batch
 
-    def local_mask_branch(self, box_batch: Tensor, feats: list[Tensor]) -> Tensor:
+    def local_mask_branch(self, box_batch: list[Tensor], feats: list[Tensor]) -> Tensor:
         first_level_size = feats[0].shape[2:]
         merged_feat = torch.cat(
             [
@@ -218,9 +201,10 @@ class MaskYolo(nn.Module):
     def forward(
         self, image_batch: Tensor
     ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        feats = self.feats(image_batch)
-        box_feats = self.box_feats(feats)
-        box_levels = self.box_branch(box_feats)
+        ...
+        # feats = self.feats(image_batch)
+        # box_feats = self.box_feats(feats)
+        # box_levels = self.box_branch(box_feats)
         # obj_batch, box_batch, cate_batch, label_batch = self.to_boxes(yolo_batch)
         # mask_feats = self.mask_feats(feats)
         # mask_batch = self.local_mask_branch(box_batch, mask_feats)
@@ -245,14 +229,13 @@ class Criterion:
         self.assign = IoUAssign(threshold=0.2)
         self.box_loss = DIoULoss()
         self.obj_loss = FocalLoss()
-        self.to_boxes = ToBoxes(strides=self.model.box_strides)
         self.local_mask_loss = FocalLoss()
         self.cate_loss = F.binary_cross_entropy_with_logits
 
     def __call__(
         self,
         inputs: tuple[Tensor],
-        targets: tuple[list[Tensor], list[Tensor]],
+        targets: tuple[list[Tensor], list[Tensor], list[Tensor]],
     ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         (images,) = inputs  # list of [b, num_classes + 5, h, w]
         gt_mask_batch, gt_box_batch, gt_label_batch = targets
@@ -309,7 +292,7 @@ class Criterion:
         gt_boxes_batch: list[Tensor],
         gt_label_batch: list[Tensor],
         pred_yolo_batch: Tensor,
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         device = pred_yolo_batch.device
         num_classes = self.model.num_classes
         gt_yolo_batch = torch.zeros(
