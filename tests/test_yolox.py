@@ -13,7 +13,7 @@ def mask_yolo() -> MaskYolo:
     backbone = EfficientNetFPN("efficientnet-b0")
     num_classes = 2
     mask_size = 16
-    box_feat_range = (2, 5)
+    box_feat_range = (2, 7)
     mask_feat_range = (0, 3)
     patch_size = 128
     neck = CSPNeck(
@@ -59,9 +59,8 @@ def test_mask_yolo_box_branch(mask_yolo: MaskYolo) -> None:
     images = torch.rand(2, 3, image_size, image_size)
     feats = mask_yolo.feats(images)
     box_feats = mask_yolo.box_feats(feats)
-    yolo_batch, anchor_batch = mask_yolo.box_branch(box_feats)
-    assert len(yolo_batch) == len(anchor_batch) == 2
-    assert yolo_batch.shape[:2] == anchor_batch.shape[:2]
+    yolo_batch = mask_yolo.box_branch(box_feats)
+    assert len(yolo_batch) == 2
 
 
 def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
@@ -101,7 +100,6 @@ def test_forward(
     images = torch.rand(1, 3, 256, 256)
     mask_yolo.score_threshold = 0.0
     score_batch, lable_batch, box_batch, mask_batch = mask_yolo(images)
-    print(mask_batch[0].shape)
     draw_save(
         "/app/test_outputs/yolox-forward.png",
         images[0],

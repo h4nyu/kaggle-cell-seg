@@ -124,7 +124,7 @@ class MaskYolo(nn.Module):
         score_threshold: float = 0.5,
         mask_threshold: float = 0.5,
         mask_feat_range: tuple[int, int] = (0, 4),
-        box_feat_range: tuple[int, int] = (3, 5),
+        box_feat_range: tuple[int, int] = (3, 7),
     ) -> None:
         super().__init__()
         self.backbone = backbone
