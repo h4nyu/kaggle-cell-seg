@@ -154,11 +154,10 @@ class MaskYolo(nn.Module):
         self.score_threshold = score_threshold
         self.mask_threshold = mask_threshold
 
-    def box_branch(self, feats: list[Tensor]) -> tuple[Tensor, Tensor]:
+    def box_branch(self, feats: list[Tensor]) -> Tensor:
         device = feats[0].device
         box_levels = self.box_head(feats)
         yolo_box_list = []
-        anchor_list = []
         for pred, stride in zip(box_levels, self.box_strides):
             batch_size, num_outputs, rows, cols = pred.shape
             grid = grid_points(rows, cols).to(device)
@@ -168,15 +167,6 @@ class MaskYolo(nn.Module):
                 .reshape(batch_size, rows * cols, num_outputs)
                 .float()
             )
-            anchor = torch.cat(
-                [
-                    (torch.zeros((*yolo_boxes.shape[:2], 2)).to(device) + grid)
-                    * stride,
-                    torch.ones((*yolo_boxes.shape[:2], 2)).to(device) * stride,
-                ],
-                dim=-1,
-            )
-            anchor_list.append(anchor)
             yolo_boxes = torch.cat(
                 [
                     (yolo_boxes[..., 0:2] + grid) * stride,
@@ -187,10 +177,7 @@ class MaskYolo(nn.Module):
             ).reshape(batch_size, rows * cols, num_outputs)
             yolo_box_list.append(yolo_boxes)
         yolo_batch = torch.cat(yolo_box_list, dim=1)
-        anchor_batch = box_convert(
-            torch.cat(anchor_list, dim=1), in_fmt="cxcywh", out_fmt="xyxy"
-        )
-        return yolo_batch, anchor_batch
+        return yolo_batch
 
     def local_mask_branch(self, box_batch: list[Tensor], feats: list[Tensor]) -> Tensor:
         first_level_size = feats[0].shape[2:]
@@ -231,7 +218,6 @@ class MaskYolo(nn.Module):
         batch[..., 4] = yolo_batch[..., 4].sigmoid()
         batch[..., 5] = yolo_batch[..., 5:].argmax(-1)
         for r in batch:
-            print(r[..., 4].max())
             th_filter = r[..., 4] > self.score_threshold
             r = r[th_filter]
             boxes = r[..., :4]
@@ -283,7 +269,7 @@ class MaskYolo(nn.Module):
     ) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         feats = self.feats(image_batch)
         box_feats = self.box_feats(feats)
-        yolo_batch, anchor_batch = self.box_branch(box_feats)
+        yolo_batch = self.box_branch(box_feats)
         score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
         mask_feats = self.mask_feats(feats)
         masks = self.local_mask_branch(box_batch, mask_feats)
@@ -299,7 +285,7 @@ class Criterion:
         box_weight: float = 1.0,
         cate_weight: float = 1.0,
         local_mask_weight: float = 1.0,
-        assign_topk:float=9,
+        assign_topk:int=9,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -323,9 +309,9 @@ class Criterion:
         device = images.device
         feats = self.model.feats(images)
         box_feats = self.model.box_feats(feats)
-        pred_yolo_batch, anchor_batch = self.model.box_branch(box_feats)
+        pred_yolo_batch = self.model.box_branch(box_feats)
         gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_gt(
-            gt_mask_batch, gt_box_batch, gt_label_batch, anchor_batch
+            gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
 
         # # 1-stage
@@ -336,7 +322,6 @@ class Criterion:
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
         )
-        print(pos_idx.sum())
         if pos_idx.sum() > 0:
             box_loss += self.box_loss(
                 box_convert(
@@ -374,25 +359,25 @@ class Criterion:
         gt_mask_batch: list[Tensor],
         gt_boxes_batch: list[Tensor],
         gt_label_batch: list[Tensor],
-        anchor_batch: Tensor,
+        pred_yolo_batch: Tensor,
     ) -> tuple[Tensor, Tensor, Tensor]:
-        device = anchor_batch.device
+        device = pred_yolo_batch.device
         num_classes = self.model.num_classes
         gt_yolo_batch = torch.zeros(
-            (*anchor_batch.shape[:2], num_classes + 5),
-            dtype=anchor_batch.dtype,
+            pred_yolo_batch.shape,
+            dtype=pred_yolo_batch.dtype,
             device=device,
         )
         mask_size = self.model.mask_size
         mask_stride = self.model.mask_stride
 
         gt_local_mask_list = []
-        for batch_idx, (gt_masks, gt_boxes, gt_labels, anchor_boxes) in enumerate(
-            zip(gt_mask_batch, gt_boxes_batch, gt_label_batch, anchor_batch)
+        for batch_idx, (gt_masks, gt_boxes, gt_labels, pred_yolo) in enumerate(
+            zip(gt_mask_batch, gt_boxes_batch, gt_label_batch, pred_yolo_batch)
         ):
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
-                anchor_boxes,
+                box_convert(pred_yolo[...,:4], in_fmt="cxcywh", out_fmt="xyxy"),
                 gt_boxes,
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
