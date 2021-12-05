@@ -298,3 +298,20 @@ class CSPBlock(nn.Module):
         h2 = self.bypass_conv(x)
         h = self.act(self.bn(torch.cat([h1, h2], dim=1)))
         return self.out_conv(h)
+
+
+class DarkBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        depth: int,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        assert depth == 1
+        self.in_conv = ConvBnAct(in_channels, out_channels, 3, 2, act=act)
+        self.res = ResBlock(out_channels, act=act)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.res(self.in_conv(x))

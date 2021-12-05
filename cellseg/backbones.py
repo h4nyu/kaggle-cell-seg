@@ -1,7 +1,9 @@
 import torch.nn as nn
 from torch import Tensor
 from efficientnet_pytorch import EfficientNet
-from typing import Protocol
+from typing import Protocol, Callable, Any
+from .utils import round_to
+from .blocks import CSPDarkBlock, ConvBnAct, DarkBlock, DefaultActivation
 
 
 class FPNLike(Protocol):
@@ -40,3 +42,41 @@ class EfficientNetFPN(nn.Module):
     def forward(self, images: Tensor) -> list[Tensor]:  # P1 - P6, P7 is dropped
         features = self.net.extract_endpoints(images)
         return [images, *features.values()][: self.out_len]
+
+
+class CSPDarknet(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        width: int = 32,
+        width_mult: float = 1.0,
+        depths: list[int] = [1, 2, 8, 8, 4],
+        entry_block_type: Any = DarkBlock,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        out_channels = int(width * width_mult)
+        self.stem = ConvBnAct(in_channels, round_to(out_channels), 3, 1, act=act)
+        stages = []
+        block_type = entry_block_type
+        self.out_channels = []
+        for idx_stage, depth in enumerate(depths):
+            block_type = entry_block_type if idx_stage == 0 else CSPDarkBlock
+            in_channels = out_channels
+            out_channels = min(2 * in_channels, int(width * width_mult * 32))
+            block = block_type(
+                round_to(in_channels), round_to(out_channels), depth, act=act
+            )
+            stages.append(block)
+            if idx_stage > 1:
+                self.out_channels.append(round_to(out_channels))
+        self.stages = nn.ModuleList(stages)
+
+    def forward(self, x: Tensor) -> list[Tensor]:
+        x = self.stem(x)
+        output = []
+        for idx, stage in enumerate(self.stages):
+            x = stage(x)
+            if idx > 1:
+                output.append(x)
+        return output

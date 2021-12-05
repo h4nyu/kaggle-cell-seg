@@ -135,6 +135,7 @@ class MaskYolo(nn.Module):
         self.box_feat_range = box_feat_range
         self.mask_feat_range = mask_feat_range
         self.num_classes = num_classes
+        self.box_limit = box_limit
         self.strides = self.neck.strides
         self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
         self.mask_stride = self.strides[self.mask_feat_range[0]]
@@ -228,7 +229,7 @@ class MaskYolo(nn.Module):
                 scores=scores,
                 idxs=lables,
                 iou_threshold=self.box_iou_threshold,
-            )[:self.box_limit]
+            )[: self.box_limit]
             box_batch.append(boxes[nms_index])
             score_batch.append(scores[nms_index])
             lable_batch.append(lables[nms_index])
