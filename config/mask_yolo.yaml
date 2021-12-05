@@ -13,14 +13,13 @@ root_path: &root_path /store
 
 num_classes: 1
 patch_size: 768
-grid_size: 48
 mask_size: 8
 
 # model
 box_feat_range: [3, 6]
 mask_feat_range: [0, 4]
 hidden_channels: 64
-score_threshold: 0.1
+score_threshold: 0.5
 
 
 # to masks
