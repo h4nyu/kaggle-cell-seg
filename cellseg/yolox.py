@@ -11,7 +11,7 @@ from .heads import MaskHead
 from .utils import grid_points,draw_save
 from .loss import DIoULoss, FocalLoss
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
-from .assign import IoUAssign
+from .assign import ATSS
 from cellseg.utils import round_to
 import math
 
@@ -299,6 +299,7 @@ class Criterion:
         box_weight: float = 1.0,
         cate_weight: float = 1.0,
         local_mask_weight: float = 1.0,
+        assign_topk:float=9,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -306,7 +307,7 @@ class Criterion:
         self.local_mask_weight = local_mask_weight
         self.model = model
         self.strides = self.model.strides
-        self.assign = IoUAssign(threshold=0.3)
+        self.assign = ATSS(topk=assign_topk)
         self.box_loss = DIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
@@ -335,6 +336,7 @@ class Criterion:
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
         )
+        print(pos_idx.sum())
         if pos_idx.sum() > 0:
             box_loss += self.box_loss(
                 box_convert(

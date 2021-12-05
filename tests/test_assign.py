@@ -35,8 +35,9 @@ def test_atss() -> None:
     inputs[3] = torch.tensor([10, 10, 20, 20])
     inputs[4] = torch.tensor([5, 10, 10, 15])
 
-    targets = torch.zeros(2, 4)
+    targets = torch.zeros(3, 4)
     targets[0] = torch.tensor([0, 0, 4, 4])
     targets[1] = torch.tensor([5, 10, 10, 20])
-    a = ATSS(topk=5)
+    targets[2] = torch.tensor([10, 10, 20, 20])
+    a = ATSS(topk=6)
     pair = a(inputs, targets)

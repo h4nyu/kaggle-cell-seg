@@ -63,6 +63,7 @@ criterion:
   box_weight: 1.0
   cate_weight: 0.0
   local_mask_weight: 1.0
+  assign_topk: 27
 
 optimizer:
   lr: 1e-3
