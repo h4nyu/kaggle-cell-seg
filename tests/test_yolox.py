@@ -14,6 +14,7 @@ def mask_yolo() -> MaskYolo:
     mask_size = 16
     box_feat_range = (2, 5)
     mask_feat_range = (0, 3)
+    patch_size = 128
     neck = CSPNeck(
         in_channels=backbone.out_channels,
         out_channels=backbone.out_channels,
@@ -26,6 +27,10 @@ def mask_yolo() -> MaskYolo:
         num_classes=num_classes,
         box_feat_range=box_feat_range,
         mask_feat_range=mask_feat_range,
+        patch_size=patch_size,
+        box_iou_threshold=0.1,
+        score_threshold=0.0,
+        mask_threshold=0.0,
     )
 
 

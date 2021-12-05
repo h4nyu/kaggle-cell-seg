@@ -11,6 +11,7 @@ from cellseg.yolox import (
     Criterion,
     TrainStep,
     ValidationStep,
+    InferenceStep,
 )
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
@@ -50,6 +51,9 @@ def main(cfg: DictConfig) -> None:
         box_feat_range=cfg.box_feat_range,
         mask_feat_range=cfg.mask_feat_range,
         num_classes=cfg.num_classes,
+        patch_size=cfg.patch_size,
+        score_threshold=cfg.score_threshold,
+        mask_threshold=cfg.mask_threshold,
     )
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
@@ -105,7 +109,7 @@ def main(cfg: DictConfig) -> None:
         if score > val_reduer.value["loss"]:
             score = checkpoint.save(model, val_reduer.value["loss"])
             logger.info(f"save checkpoint")
-        logger.info(f"epoch eval {score=} {train_reduer.value} {mask_ap.value=}")
+        logger.info(f"epoch eval {score=} {val_reduer.value} {mask_ap.value=}")
 
 
 if __name__ == "__main__":

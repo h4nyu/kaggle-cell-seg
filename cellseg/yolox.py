@@ -8,7 +8,7 @@ from .blocks import ConvBnAct, DefaultActivation
 from .backbones import FPNLike
 from .necks import NeckLike
 from .heads import MaskHead
-from .utils import grid_points
+from .utils import grid_points,draw_save
 from .loss import DIoULoss, FocalLoss
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
 from .assign import IoUAssign
@@ -119,8 +119,10 @@ class MaskYolo(nn.Module):
         neck: NeckLike,
         num_classes: int,
         mask_size: int,
+        patch_size: int,
         box_iou_threshold: float = 0.5,
         score_threshold: float = 0.5,
+        mask_threshold: float = 0.5,
         mask_feat_range: tuple[int, int] = (0, 4),
         box_feat_range: tuple[int, int] = (3, 5),
     ) -> None:
@@ -128,6 +130,7 @@ class MaskYolo(nn.Module):
         self.backbone = backbone
         self.neck = neck
         self.mask_size = mask_size
+        self.patch_size = patch_size
         self.box_feat_range = box_feat_range
         self.mask_feat_range = mask_feat_range
         self.num_classes = num_classes
@@ -149,6 +152,7 @@ class MaskYolo(nn.Module):
         )
         self.box_iou_threshold = box_iou_threshold
         self.score_threshold = score_threshold
+        self.mask_threshold = mask_threshold
 
     def box_branch(self, feats: list[Tensor]) -> tuple[Tensor, Tensor]:
         device = feats[0].device
@@ -219,13 +223,15 @@ class MaskYolo(nn.Module):
         self, yolo_batch: Tensor
     ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
         score_batch, box_batch, lable_batch = [], [], []
-        batch = torch.zeros((*yolo_batch.shape[:2], 6))
+        device = yolo_batch.device
+        batch = torch.zeros((*yolo_batch.shape[:2], 6)).to(device)
         batch[..., :4] = box_convert(
             yolo_batch[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
         )
         batch[..., 4] = yolo_batch[..., 4].sigmoid()
         batch[..., 5] = yolo_batch[..., 5:].argmax(-1)
         for r in batch:
+            print(r[..., 4].max())
             th_filter = r[..., 4] > self.score_threshold
             r = r[th_filter]
             boxes = r[..., :4]
@@ -242,13 +248,34 @@ class MaskYolo(nn.Module):
             lable_batch.append(lables[nms_index])
         return score_batch, box_batch, lable_batch
 
-    def to_masks(self, masks: Tensor, box_batch: list[Tensor]) -> list[Tensor]:
+    def to_masks(
+        self, all_local_masks: Tensor, box_batch: list[Tensor]
+    ) -> list[Tensor]:
         mask_batch = []
         cur = 0
-        masks = masks.sigmoid()
+        device = all_local_masks.device
+        all_local_masks = all_local_masks.sigmoid()
         for boxes in box_batch:
-            mask_batch.append(masks[cur : cur + len(boxes)].squeeze(1))
+            # masks = torch.zeros(len(boxes), self.patch_size, self.patch_size).to(device)
+            local_masks = all_local_masks[cur : cur + len(boxes)].squeeze(1)
+            # mask_batch.append()
             cur += len(boxes)
+            masks = torch.zeros(len(boxes), self.patch_size, self.patch_size).to(device)
+            for i, (b, local_mask) in enumerate(
+                zip(boxes.long().clip(min=0, max=self.patch_size - 1), local_masks)
+            ):
+                restored_mask = F.interpolate(
+                    local_mask.view(1, 1, self.mask_size, self.mask_size),
+                    size=(
+                        b[3] - b[1] + 1,
+                        b[2] - b[0] + 1,
+                    ),
+                )
+                masks[i, b[1] : b[3] + 1, b[0] : b[2] + 1] = restored_mask.view(
+                    1, *restored_mask.shape[2:]
+                )
+            masks = masks > self.mask_threshold
+            mask_batch.append(masks)
         return mask_batch
 
     def forward(
@@ -279,7 +306,7 @@ class Criterion:
         self.local_mask_weight = local_mask_weight
         self.model = model
         self.strides = self.model.strides
-        self.assign = IoUAssign(threshold=0.5)
+        self.assign = IoUAssign(threshold=0.3)
         self.box_loss = DIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
@@ -427,10 +454,11 @@ class ValidationStep:
         criterion: Criterion,
     ) -> None:
         self.criterion = criterion
+        self.model = criterion.model
 
     @torch.no_grad()
     def __call__(self, batch: Batch) -> dict[str, float]:
-        self.criterion.model.eval()
+        self.model.eval()
         images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
         loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
             (images,),
@@ -441,6 +469,18 @@ class ValidationStep:
             ),
         )
 
+        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images[:1])
+        draw_save(
+            "/app/test_outputs/gt.png",
+            images[0],
+            gt_mask_batch[0],
+        )
+        draw_save(
+            "/app/test_outputs/pred.png",
+            images[0],
+            pred_mask_batch[0],
+        )
+
         return dict(
             loss=loss.item(),
             obj_loss=obj_loss.item(),
@@ -448,3 +488,19 @@ class ValidationStep:
             cate_loss=cate_loss.item(),
             local_mask_loss=local_mask_loss.item(),
         )
+
+
+class InferenceStep:
+    def __init__(
+        self,
+        model: MaskYolo,
+    ) -> None:
+        self.model = model
+
+    @torch.no_grad()
+    def __call__(self, batch: Batch) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+        self.model.eval()
+        images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
+        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images)
+
+        return pred_score_batch, pred_mask_batch, pred_label_batch
