@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.loss import DiceLoss, FocalLoss, DIoULoss
+from cellseg.loss import DiceLoss, FocalLoss, DIoULoss, SCALoss
 
 
 @pytest.mark.parametrize(
@@ -48,3 +48,16 @@ def test_diouloss() -> None:
         tgt_boxes,
     )
     assert (res - 0).abs() < 1e-7
+
+
+def test_sca_loss() -> None:
+    fn = SCALoss()
+
+    inputs = torch.tensor(
+        [
+            [0.2, 0.2, 0.3, 0.3],
+            [0.2, 0.2, 0.3, 0.3],
+        ]
+    )
+    targets = torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
+    fn(inputs, targets)

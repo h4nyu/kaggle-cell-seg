@@ -156,3 +156,27 @@ class DIoULoss:
             ctr_loss = ctr_loss.mean()
 
         return iouloss + ctr_loss
+
+
+class SCALoss:
+    def __init__(
+        self,
+        alpha: float = 1.0,
+    ) -> None:
+        self.alpha = alpha
+
+    def __call__(self, inputs: Tensor, targets: Tensor) -> Tensor:
+        area1 = box_area(inputs)
+        area2 = box_area(targets)
+
+        lt = torch.max(inputs[:, None, :2], targets[:, :2])  # [N,M,2]
+        rb = torch.min(inputs[:, None, 2:], targets[:, 2:])  # [N,M,2]
+        wh = (rb - lt).clamp(min=0)  # [N,M,2]
+        inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
+        print(inter)
+
+    # union = area1[:, None] + area2 - inter
+
+    # return inter, union
+
+    #     ...

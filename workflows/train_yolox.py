@@ -59,7 +59,7 @@ def main(cfg: DictConfig) -> None:
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
     criterion = Criterion(model=model, **cfg.criterion)
-    optimizer = optim.Adam(model.parameters(), **cfg.optimizer)
+    optimizer = optim.SGD(model.parameters(), **cfg.optimizer)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
     train_step = TrainStep(
         optimizer=optimizer,
