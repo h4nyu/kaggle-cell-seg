@@ -1,4 +1,4 @@
-name: center_mask-baseline-patch-b0-neck-768-48-128
+name: mask_yolo-test
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -58,13 +58,14 @@ dataset:
   train_csv: /store/train.csv
   smallest_area: 8
 criterion:
-  category_weight: 1.0
-  mask_weight: 1.0
-  size_weight: 50.0
+  obj_weight: 1.0
+  box_weight: 1.0
+  cate_weight: 1.0
+  local_mask_weight: 1.0
 
 optimizer:
-  # lr: 1e-3
-  lr: 5e-4
+  lr: 1e-3
+  # lr: 5e-4
 
 scheduler:
   mode: min

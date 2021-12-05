@@ -30,11 +30,13 @@ def mask_yolo() -> MaskYolo:
 
 @pytest.fixture
 def targets() -> tuple[list[Tensor], list[Tensor]]:
-    labels = torch.zeros(1).long()
-    label_batch = [labels]
-    masks = torch.zeros(1, 128, 128, dtype=torch.bool)
-    masks[0, 10:20, 30:40] = True
-    mask_batch = [masks]
+    masks0 = torch.zeros(1, 128, 128, dtype=torch.bool)
+    masks0[0, 10:20, 30:40] = True
+    masks1 = torch.zeros(2, 128, 128, dtype=torch.bool)
+    masks1[0, 10:20, 30:40] = True
+    masks1[1, 20:30, 30:40] = True
+    mask_batch = [masks0, masks1]
+    label_batch = [torch.zeros(len(m)).long() for m in mask_batch]
     return mask_batch, label_batch
 
 
@@ -75,5 +77,5 @@ def test_criterion(
     mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor]]
 ) -> None:
     criterion = Criterion(model=mask_yolo)
-    images = torch.rand(4, 3, 128, 128)
+    images = torch.rand(2, 3, 128, 128)
     criterion(inputs=(images,), targets=targets)

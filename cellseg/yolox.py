@@ -125,37 +125,6 @@ class ToBoxes:
         return obj_batch, box_batch, cate_batch, label_batch
 
 
-class MergeLevel:
-    def __init__(
-        self,
-        strides: list[int],
-    ) -> None:
-        self.strides = strides
-
-    def __call__(self, box_levels: list[Tensor]) -> Tensor:
-        device = box_levels[0].device
-        yolo_box_list = []
-        for pred, stride in zip(box_levels, self.strides):
-            batch_size, num_outputs, rows, cols = pred.shape
-            grid = grid_points(rows, cols).to(device)
-            strides = torch.full((len(grid),), stride).to(device)
-            yolo_boxes = (
-                pred.permute(0, 2, 3, 1)
-                .reshape(batch_size, rows * cols, num_outputs)
-                .float()
-            )
-            yolo_boxes = torch.cat(
-                [
-                    (yolo_boxes[..., 0:2] + grid) * stride,
-                    yolo_boxes[..., 2:4].exp() * stride,
-                    yolo_boxes[..., 4:],
-                ],
-                dim=-1,
-            ).reshape(batch_size, rows * cols, num_outputs)
-            yolo_box_list.append(yolo_boxes)
-        yolo_batch = torch.cat(yolo_box_list, dim=1)
-        return yolo_batch
-
 
 class MaskYolo(nn.Module):
     def __init__(
@@ -189,15 +158,36 @@ class MaskYolo(nn.Module):
                 neck.out_channels[self.mask_feat_range[0]:self.mask_feat_range[1]]
             ), out_channels=1
         )
-        self.merge_level = MergeLevel(strides=self.box_strides)
         self.to_boxes = ToBoxes(strides=self.box_strides)
 
     def box_branch(self, feats: list[Tensor]) -> list[Tensor]:
-        return self.box_head(feats)
+        device = feats[0].device
+        box_levels = self.box_head(feats)
+        yolo_box_list = []
+        for pred, stride in zip(box_levels, self.box_strides):
+            batch_size, num_outputs, rows, cols = pred.shape
+            grid = grid_points(rows, cols).to(device)
+            strides = torch.full((len(grid),), stride).to(device)
+            yolo_boxes = (
+                pred.permute(0, 2, 3, 1)
+                .reshape(batch_size, rows * cols, num_outputs)
+                .float()
+            )
+            yolo_boxes = torch.cat(
+                [
+                    (yolo_boxes[..., 0:2] + grid) * stride,
+                    yolo_boxes[..., 2:4].exp() * stride,
+                    yolo_boxes[..., 4:],
+                ],
+                dim=-1,
+            ).reshape(batch_size, rows * cols, num_outputs)
+            yolo_box_list.append(yolo_boxes)
+        yolo_batch = torch.cat(yolo_box_list, dim=1)
+        return yolo_batch
 
     def local_mask_branch(self, box_batch: Tensor, feats: list[Tensor]) -> Tensor:
         first_level_size = feats[0].shape[2:]
-        merged_feats = torch.cat(
+        merged_feat = torch.cat(
             [
                 feat if idx == 0 else F.interpolate(feat, size=first_level_size)
                 for idx, feat in enumerate(feats)
@@ -205,12 +195,12 @@ class MaskYolo(nn.Module):
             dim=1,
         )
         roi_feats = roi_align(
-            merged_feats,
-            list(box_batch.unsqueeze(1)),
+            merged_feat,
+            box_batch,
             self.mask_size,
         )
         local_masks = self.local_mask_head(roi_feats)
-        return local_masks
+        # return local_masks
 
     def feats(self, x: Tensor) -> list[Tensor]:
         feats = self.backbone(x)
@@ -226,7 +216,6 @@ class MaskYolo(nn.Module):
         feats = self.feats(image_batch)
         box_feats = self.box_feats(feats)
         box_levels = self.box_branch(box_feats)
-        yolo_batch = self.merge_level(box_levels)
         obj_batch, box_batch, cate_batch, label_batch = self.to_boxes(yolo_batch)
         mask_feats = self.mask_feats(feats)
         mask_batch = self.local_mask_branch(box_batch, mask_feats)
@@ -252,7 +241,6 @@ class Criterion:
         self.box_loss = DIoULoss()
         self.obj_loss = FocalLoss()
         self.to_boxes = ToBoxes(strides=self.model.box_strides)
-        self.merge_level = MergeLevel(strides=self.model.box_strides)
         self.local_mask_loss = FocalLoss()
         self.cate_loss = F.binary_cross_entropy_with_logits
 
@@ -266,12 +254,11 @@ class Criterion:
         device = images.device
         feats = self.model.feats(images)
         box_feats = self.model.box_feats(feats)
-        box_levels = self.model.box_branch(box_feats)
-        pred_yolo_batch = self.merge_level(box_levels)
+        pred_yolo_batch = self.model.box_branch(box_feats)
         pred_obj_batch, pred_box_batch, pred_cate_batch, _ = self.to_boxes(
             pred_yolo_batch
         )
-        gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_gt(
+        gt_yolo_batch, gt_local_mask_batch, pos_idx, mask_batch = self.prepeare_gt(
             gt_mask_batch, gt_label_batch, pred_box_batch
         )
         gt_obj_batch, gt_boxes_batch, gt_cate_batch, _ = self.to_boxes(gt_yolo_batch)
@@ -291,12 +278,15 @@ class Criterion:
             )
 
             # 2-stage
+            print(mask_batch)
+            print(gt_boxes_batch[mask_batch[:,0], mask_batch[:, 2]])
+            print(gt_local_mask_batch[mask_batch[:, 1]])
+            print(gt_local_mask_batch.shape)
             pred_local_masks = self.model.local_mask_branch(
-                gt_boxes_batch[pos_idx], self.model.mask_feats(feats)
-            )
-            local_mask_loss += self.local_mask_loss(
-                pred_local_masks, gt_local_mask_batch
-            )
+                [gb[p] for gb, p in zip(gt_boxes_batch, pos_idx)], self.model.mask_feats(feats))
+            # local_mask_loss += self.local_mask_loss(
+            #     pred_local_masks, gt_local_mask_batch
+            # )
 
         loss = (
             self.box_weight * box_loss
@@ -311,7 +301,7 @@ class Criterion:
         gt_mask_batch: list[Tensor],
         gt_label_batch: list[Tensor],
         pred_box_batch: Tensor,
-    ) -> tuple[Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         device = pred_box_batch.device
         num_classes = self.model.num_classes
         gt_yolo_batch = torch.zeros(
@@ -323,27 +313,35 @@ class Criterion:
         mask_stride = self.model.mask_stride
 
         gt_local_mask_list = []
+        match_list =[]
+        gt_boxes_batch = []
         for batch_idx, (gt_masks, gt_labels, pred_boxes) in enumerate(
             zip(gt_mask_batch, gt_label_batch, pred_box_batch)
         ):
             gt_boxes = masks_to_boxes(gt_masks)
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
 
-            gt_local_masks = roi_align(
-                gt_masks.float().unsqueeze(1),
-                list(gt_boxes.unsqueeze(1)),
-                mask_size,
-            )
-            gt_local_mask_list.append(gt_local_masks)
             matched = self.assign(gt_boxes, pred_boxes)
-            gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
-            gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
-            gt_yolo_batch[batch_idx, matched[:, 1], 5:] = F.one_hot(
+            matched = torch.cat([torch.full((len(matched),1), batch_idx), matched], dim=1)
+            match_list.append(matched)
+            gt_yolo_batch[batch_idx, matched[:, 2], :4] = gt_cxcywh[matched[:, 1]]
+            gt_yolo_batch[batch_idx, matched[:, 2], 4] = 1.0
+            gt_yolo_batch[batch_idx, matched[:, 2], 5:] = F.one_hot(
                 gt_labels[matched[:, 0]], num_classes
             ).to(gt_yolo_batch)
+            gt_local_masks = roi_align(
+                gt_masks[matched[:, 0]].float().unsqueeze(1),
+                list(gt_boxes[matched[:, 0]].unsqueeze(1)),
+                mask_size,
+            )
+            gt_boxes_batch.append(gt_boxes[matched[:, 0]])
+            gt_local_mask_list.append(gt_local_masks)
+
         pos_idx = gt_yolo_batch[..., 4] > 0
+        mask_batch = torch.cat(match_list)
+        print(mask_batch)
         gt_local_mask_batch = torch.cat(gt_local_mask_list)
-        return gt_yolo_batch, gt_local_mask_batch, pos_idx
+        return gt_yolo_batch, gt_local_mask_batch, pos_idx, mask_batch
 
 
 class TrainStep:
