@@ -96,3 +96,70 @@ class IoUAssign:
         input_index = torch.range(start=0, end=len(inputs) - 1).long().to(device)
         pair = torch.stack([input_index, matched_ids[:, 0]]).t()[pos_filter]
         return pair
+
+
+class SimOTA:
+    def __init__(
+        self, topk: int, radius: float = 1.0, center_weight: float = 0.0
+    ) -> None:
+        self.topk = topk
+        self.radius = radius
+        self.center_weight = center_weight
+
+    def candidates(
+        self,
+        pred_boxes: Tensor,
+        gt_boxes: Tensor,
+        strides: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        gt_boxes = gt_boxes.unsqueeze(1)
+        gt_centers = (gt_boxes[:, :, 0:2] + gt_boxes[:, :, 2:4]) / 2.0
+        pred_centers = (pred_boxes[:, 0:2] + pred_boxes[:, 2:4]) / 2.0
+
+        is_in_box = (  # grid cell inside gt-box
+            (gt_boxes[:, :, 0] <= pred_centers[:, 0])
+            & (pred_centers[:, 0] < gt_boxes[:, :, 2])
+            & (gt_boxes[:, :, 1] <= pred_centers[:, 1])
+            & (pred_centers[:, 1] < gt_boxes[:, :, 3])
+        )  # [num_gts, num_proposals]
+
+        gt_center_lbound = gt_centers - self.radius * strides.unsqueeze(1)
+        gt_center_ubound = gt_centers + self.radius * strides.unsqueeze(1)
+
+        is_in_center = (  # grid cell near gt-box center
+            (gt_center_lbound[:, :, 0] <= pred_centers[:, 0])
+            & (pred_centers[:, 0] < gt_center_ubound[:, :, 0])
+            & (gt_center_lbound[:, :, 1] <= pred_centers[:, 1])
+            & (pred_centers[:, 1] < gt_center_ubound[:, :, 1])
+        )  # [num_gts, num_proposals]
+        candidates = (is_in_box | is_in_center).any(dim=0)
+        center_matrix = (is_in_box & is_in_center)[
+            :, candidates
+        ]  # [num_gts, num_fg_candidates]
+        return candidates, center_matrix
+
+    def __call__(
+        self,
+        pred_boxes: Tensor,
+        pred_scores: Tensor,
+        gt_boxes: Tensor,
+        strides: Tensor,
+    ) -> Tensor:  # [gt_index, pred_index]
+        device = pred_boxes.device
+        gt_count = len(gt_boxes)
+        pred_count = len(gt_boxes)
+        if gt_count == 0 or pred_count == 0:
+            return torch.zeros(0, 2).to(device)
+        candidates, center_matrix = self.candidates(pred_boxes, gt_boxes, strides)
+        score_matrix = pred_scores[candidates].expand(gt_count, -1)
+        iou_matrix = box_iou(gt_boxes, pred_boxes[candidates])
+        matrix = score_matrix + iou_matrix + center_matrix * self.center_weight
+        topk = min(self.topk, gt_count)
+        topk_ious, _ = torch.topk(iou_matrix, topk, dim=1)
+        dynamic_ks = topk_ious.sum(dim=1).int().clamp(min=1)
+
+        matching_matrix = torch.zeros_like(matrix, dtype=torch.long)
+        for gt_idx, (row, dynamic_topk) in enumerate(zip(matrix, dynamic_ks)):
+            _, pos_idx = torch.topk(row, k=dynamic_topk)
+            matching_matrix[gt_idx][pos_idx] = 1
+        return matching_matrix.nonzero()

@@ -11,7 +11,7 @@ from .heads import MaskHead
 from .utils import grid_points, draw_save
 from .loss import CIoULoss, FocalLoss
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
-from .assign import ATSS
+from .assign import ATSS, SimOTA
 from cellseg.utils import round_to
 import math
 
@@ -163,20 +163,21 @@ class MaskYolo(nn.Module):
         for pred, stride in zip(box_levels, self.box_strides):
             batch_size, num_outputs, rows, cols = pred.shape
             grid = grid_points(rows, cols).to(device)
-            strides = torch.full((len(grid),), stride).to(device)
             yolo_boxes = (
                 pred.permute(0, 2, 3, 1)
                 .reshape(batch_size, rows * cols, num_outputs)
                 .float()
             )
+            strides = torch.full((batch_size, len(grid), 1), stride).to(device)
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2].tanh() + grid) * stride,
-                    yolo_boxes[..., 2:4].exp() * stride,
+                    (yolo_boxes[..., 0:2] + grid) * strides,
+                    yolo_boxes[..., 2:4].exp() * strides,
                     yolo_boxes[..., 4:],
+                    strides,
                 ],
                 dim=-1,
-            ).reshape(batch_size, rows * cols, num_outputs)
+            ).reshape(batch_size, rows * cols, num_outputs + 1)
             yolo_box_list.append(yolo_boxes)
         yolo_batch = torch.cat(yolo_box_list, dim=1)
         return yolo_batch
@@ -214,12 +215,13 @@ class MaskYolo(nn.Module):
     ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
         score_batch, box_batch, lable_batch = [], [], []
         device = yolo_batch.device
+        num_classes = self.num_classes
         batch = torch.zeros((*yolo_batch.shape[:2], 6)).to(device)
         batch[..., :4] = box_convert(
             yolo_batch[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
         )
         batch[..., 4] = yolo_batch[..., 4].sigmoid()
-        batch[..., 5] = yolo_batch[..., 5:].argmax(-1)
+        batch[..., 5] = yolo_batch[..., 5 : 5 + num_classes].argmax(-1)
         for r in batch:
             th_filter = r[..., 4] > self.score_threshold
             r = r[th_filter]
@@ -308,7 +310,7 @@ class Criterion:
         self.local_mask_weight = local_mask_weight
         self.model = model
         self.strides = self.model.strides
-        self.assign = ATSS(topk=assign_topk)
+        self.assign = SimOTA(topk=assign_topk)
         self.box_loss = CIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
@@ -322,6 +324,7 @@ class Criterion:
         (images,) = inputs  # list of [b, num_classes + 5, h, w]
         gt_mask_batch, gt_box_batch, gt_label_batch = targets
         device = images.device
+        num_classes = self.model.num_classes
         feats = self.model.feats(images)
         box_feats = self.model.box_feats(feats)
         pred_yolo_batch = self.model.box_branch(box_feats)
@@ -348,8 +351,8 @@ class Criterion:
                 ),
             )
             cate_loss += self.cate_loss(
-                pred_yolo_batch[..., 5:][pos_idx],
-                gt_yolo_batch[..., 5:][pos_idx],
+                pred_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
+                gt_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
             )
 
             # 2-stage
@@ -393,12 +396,16 @@ class Criterion:
         ):
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
-                box_convert(pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"),
-                gt_boxes,
+                pred_boxes=box_convert(
+                    pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
+                ),
+                pred_scores=pred_yolo[..., 4].sigmoid(),
+                strides=pred_yolo[..., -1],
+                gt_boxes=gt_boxes,
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
-            gt_yolo_batch[batch_idx, matched[:, 1], 5:] = F.one_hot(
+            gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = F.one_hot(
                 gt_labels[matched[:, 0]], num_classes
             ).to(gt_yolo_batch)
             gt_local_masks = roi_align(
@@ -499,9 +506,16 @@ class InferenceStep:
         self.model = model
 
     @torch.no_grad()
-    def __call__(self, batch: Batch) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
+    def __call__(
+        self, batch: Batch
+    ) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         self.model.eval()
         images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
-        pred_score_batch, pred_box_batch, pred_label_batch, pred_mask_batch = self.model(images)
+        (
+            pred_score_batch,
+            pred_box_batch,
+            pred_label_batch,
+            pred_mask_batch,
+        ) = self.model(images)
 
         return pred_score_batch, pred_box_batch, pred_label_batch, pred_mask_batch
