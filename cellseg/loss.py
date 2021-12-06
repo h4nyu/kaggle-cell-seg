@@ -177,11 +177,9 @@ class SCALoss:
         print(inter)
 
 
-
 class CIoULoss:
-    def __init__(self, eps:float=1e-15) -> None:
+    def __init__(self, eps: float = 1e-15) -> None:
         self.eps = eps
-
 
     def box_iou(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
         area1 = box_area(boxes1)
@@ -213,9 +211,7 @@ class CIoULoss:
         res = center_distance / (convex_diag + self.eps)
         return res
 
-    def box_ciou(
-        self, boxes1: Tensor, boxes2: Tensor
-    ) -> Tensor:
+    def box_ciou(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
         boxes1, boxes2 = boxes1.float(), boxes2.float()  # force fp32
         iou = self.box_iou(boxes1, boxes2)
         u = self._compute_distance_factor(boxes1, boxes2)

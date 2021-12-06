@@ -238,13 +238,18 @@ class MaskYolo(nn.Module):
 
     @torch.no_grad()
     def to_masks(
-        self, all_local_masks: Tensor, box_batch: list[Tensor]
-    ) -> list[Tensor]:
+        self,
+        all_local_masks: Tensor,
+        score_batch: list[Tensor],
+        box_batch: list[Tensor],
+        label_batch: list[Tensor],
+    ) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         mask_batch = []
         cur = 0
         device = all_local_masks.device
         all_local_masks = all_local_masks.sigmoid()
-        for boxes in box_batch:
+        out_box_batch, out_lable_batch, out_score_batch = [], [], []
+        for boxes, scores, labels in zip(box_batch, score_batch, label_batch):
             # masks = torch.zeros(len(boxes), self.patch_size, self.patch_size).to(device)
             local_masks = all_local_masks[cur : cur + len(boxes)].squeeze(1)
             # mask_batch.append()
@@ -264,8 +269,12 @@ class MaskYolo(nn.Module):
                     1, *restored_mask.shape[2:]
                 )
             masks = masks > self.mask_threshold
-            mask_batch.append(masks)
-        return mask_batch
+            empty_filter = masks.sum(dim=[1, 2]) > 0
+            out_box_batch.append(boxes[empty_filter])
+            mask_batch.append(masks[empty_filter])
+            out_score_batch.append(scores[empty_filter])
+            out_lable_batch.append(labels[empty_filter])
+        return mask_batch, out_score_batch, out_box_batch, out_lable_batch
 
     def forward(
         self, image_batch: Tensor
@@ -276,7 +285,9 @@ class MaskYolo(nn.Module):
         score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
         mask_feats = self.mask_feats(feats)
         masks = self.local_mask_branch(box_batch, mask_feats)
-        mask_batch = self.to_masks(masks, box_batch)
+        mask_batch, score_batch, box_batch, label_batch = self.to_masks(
+            masks, score_batch, box_batch, label_batch
+        )
         return score_batch, box_batch, label_batch, mask_batch
 
 
