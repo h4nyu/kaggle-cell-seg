@@ -499,9 +499,9 @@ class InferenceStep:
         self.model = model
 
     @torch.no_grad()
-    def __call__(self, batch: Batch) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+    def __call__(self, batch: Batch) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         self.model.eval()
         images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
-        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images)
+        pred_score_batch, pred_box_batch, pred_label_batch, pred_mask_batch = self.model(images)
 
-        return pred_score_batch, pred_mask_batch, pred_label_batch
+        return pred_score_batch, pred_box_batch, pred_label_batch, pred_mask_batch
