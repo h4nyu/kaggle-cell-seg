@@ -38,7 +38,7 @@ fold:
   seed: *seed
 
 backbone:
-  name: "efficientnet-b3"
+  name: "efficientnet-b2"
 
 mask_ap:
   reduce_size: 8

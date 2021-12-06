@@ -139,6 +139,10 @@ class MaskYolo(nn.Module):
         self.strides = self.neck.strides
         self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
         self.mask_stride = self.strides[self.mask_feat_range[0]]
+        self.box_iou_threshold = box_iou_threshold
+        self.score_threshold = score_threshold
+        self.mask_threshold = mask_threshold
+
         self.box_head = YoloxHead(
             in_channels=neck.out_channels[
                 self.box_feat_range[0] : self.box_feat_range[1]
@@ -151,9 +155,6 @@ class MaskYolo(nn.Module):
             ),
             out_channels=1,
         )
-        self.box_iou_threshold = box_iou_threshold
-        self.score_threshold = score_threshold
-        self.mask_threshold = mask_threshold
 
     def box_branch(self, feats: list[Tensor]) -> Tensor:
         device = feats[0].device
