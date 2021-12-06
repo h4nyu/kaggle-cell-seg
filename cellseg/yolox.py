@@ -9,7 +9,7 @@ from .backbones import FPNLike
 from .necks import NeckLike
 from .heads import MaskHead
 from .utils import grid_points, draw_save
-from .loss import DIoULoss, FocalLoss
+from .loss import CIoULoss, FocalLoss
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
 from .assign import ATSS
 from cellseg.utils import round_to
@@ -170,7 +170,7 @@ class MaskYolo(nn.Module):
             )
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2] + grid) * stride,
+                    (yolo_boxes[..., 0:2].tanh() + grid) * stride,
                     yolo_boxes[..., 2:4].exp() * stride,
                     yolo_boxes[..., 4:],
                 ],
@@ -297,7 +297,7 @@ class Criterion:
         self.model = model
         self.strides = self.model.strides
         self.assign = ATSS(topk=assign_topk)
-        self.box_loss = DIoULoss()
+        self.box_loss = CIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
         self.cate_loss = F.binary_cross_entropy_with_logits
@@ -459,19 +459,6 @@ class ValidationStep:
                 gt_label_batch,
             ),
         )
-
-        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images[:1])
-        draw_save(
-            "/app/test_outputs/gt.png",
-            images[0],
-            gt_mask_batch[0],
-        )
-        draw_save(
-            "/app/test_outputs/pred.png",
-            images[0],
-            pred_mask_batch[0],
-        )
-
         return dict(
             loss=loss.item(),
             obj_loss=obj_loss.item(),

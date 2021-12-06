@@ -1,6 +1,6 @@
 import pytest
 import torch
-from cellseg.loss import DiceLoss, FocalLoss, DIoULoss, SCALoss
+from cellseg.loss import DiceLoss, FocalLoss, DIoULoss, SCALoss, CIoULoss
 
 
 @pytest.mark.parametrize(
@@ -61,3 +61,17 @@ def test_sca_loss() -> None:
     )
     targets = torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
     fn(inputs, targets)
+
+
+def test_ciou_loss() -> None:
+    fn = CIoULoss()
+
+    inputs = torch.tensor(
+        [
+            [0.2, 0.2, 0.3, 0.3],
+            [0.2, 0.2, 0.3, 0.3],
+        ]
+    )
+    targets = torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
+    res = fn(inputs, targets)
+    assert res == 0.0

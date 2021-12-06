@@ -95,7 +95,7 @@ class MeanReduceDict:
 
     @property
     def value(self) -> dict[str, float]:
-        return {k: self.running.get(k,0) / max(1, self.num_samples) for k in self.keys}
+        return {k: self.running.get(k, 0) / max(1, self.num_samples) for k in self.keys}
 
 
 @torch.no_grad()

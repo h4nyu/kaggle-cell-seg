@@ -55,10 +55,10 @@ criterion:
   box_weight: 0.5
   cate_weight: 0.0
   local_mask_weight: 0.5
-  assign_topk: 19
+  assign_topk: 29
 
 optimizer:
-  lr: &lr 1.0e-3
+  lr: &lr 5.0e-4
   momentum: 0.95
   nesterov: true
 
