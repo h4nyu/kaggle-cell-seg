@@ -470,6 +470,17 @@ class ValidationStep:
                 gt_label_batch,
             ),
         )
+        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images[:1])
+        draw_save(
+            "/app/test_outputs/gt.png",
+            images[0],
+            gt_mask_batch[0],
+        )
+        draw_save(
+            "/app/test_outputs/pred.png",
+            images[0],
+            pred_mask_batch[0],
+        )
         return dict(
             loss=loss.item(),
             obj_loss=obj_loss.item(),

@@ -1,4 +1,4 @@
-name: mask_yolo-b3-3-7-16
+name: mask_yolo-b2-512-3
 use_amp: true
 num_epochs: 100
 device: cuda
@@ -12,7 +12,7 @@ log_keys:
 root_path: &root_path /store
 
 num_classes: 1
-patch_size: 768
+patch_size: 512
 mask_size: 16
 
 # model
@@ -55,10 +55,10 @@ criterion:
   box_weight: 0.5
   cate_weight: 0.0
   local_mask_weight: 0.5
-  assign_topk: 29
+  assign_topk: 19
 
 optimizer:
-  lr: &lr 5.0e-4
+  lr: &lr 1.0e-3
   momentum: 0.95
   nesterov: true
 
@@ -70,12 +70,12 @@ scheduler:
   threshold_mode: abs
 
 train_loader:
-  batch_size: 4
+  batch_size: 6
   shuffle: true
   num_workers: 3
   drop_last: true
 
 validation_loader:
-  batch_size: 4
+  batch_size: 6
   shuffle: false
   num_workers: 3
