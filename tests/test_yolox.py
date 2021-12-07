@@ -5,8 +5,20 @@ from cellseg.yolox import MaskYolo, Criterion
 from torchvision.ops import masks_to_boxes
 from cellseg.backbones import EfficientNetFPN
 from cellseg.necks import CSPNeck
-from cellseg.utils import draw_save
+from cellseg.utils import draw_save, seed_everything
+from torchvision.ops import box_convert
+from cellseg.data import (
+    CellTrainDataset,
+    Tranform,
+    TrainItem
+)
+from pathlib import Path
+from hydra import compose, initialize
 
+initialize(config_path="../config")
+cfg = compose(config_name="mask_yolo")
+has_data = Path(cfg.data.train_file_path).exists()
+seed_everything(cfg.seed)
 
 @pytest.fixture
 def mask_yolo() -> MaskYolo:
@@ -33,6 +45,17 @@ def mask_yolo() -> MaskYolo:
         score_threshold=0.0,
         mask_threshold=0.0,
     )
+
+@pytest.fixture
+def sample() -> TrainItem:
+    transform = Tranform(size=cfg.patch_size)
+    dataset = CellTrainDataset(
+        transform=transform,
+        **cfg.dataset,
+    )
+    sample = dataset[1]
+    assert sample is not None
+    return sample
 
 
 @pytest.fixture
@@ -121,3 +144,36 @@ def test_to_boxes(
     assert score_batch[0][0] == 0.9
     assert box_batch[0][0].tolist() == [10.0, 20.0, 20.0, 40.0]
     assert lable_batch[0][0] == 1
+
+
+@pytest.mark.skipif(not has_data, reason="no data volume")
+def test_assign(sample:TrainItem, mask_yolo:MaskYolo) -> None:
+    limit = 10
+    gt_box_batch = [sample["boxes"][:1]]
+    gt_mask_batch = [sample["masks"]]
+    gt_label_batch = [sample["labels"]]
+    images = sample["image"].unsqueeze(0)
+    feats = mask_yolo.feats(images)
+    box_feats = mask_yolo.box_feats(feats)
+    pred_yolo_batch = mask_yolo.box_branch(box_feats)
+    num_classes = mask_yolo.num_classes
+    criterion = Criterion(model=mask_yolo, assign_topk=10)
+
+    gt_yolo_batch, gt_local_mask_batch, pos_idx = criterion.prepeare_gt(
+        gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
+    )
+    pos_idx = pos_idx
+    draw_save(
+        "/app/test_outputs/yolox-assign-anchor.png",
+        images[0],
+        boxes=box_convert(
+            pred_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
+        )[:limit],
+    )
+    draw_save(
+        "/app/test_outputs/yolox-assign-gt.png",
+        images[0],
+        boxes=box_convert(
+            gt_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
+        )[:limit],
+    )

@@ -103,6 +103,7 @@ def draw_save(
     path: str,
     image: Tensor,
     masks: Optional[Tensor] = None,
+    boxes: Optional[Tensor] = None,
 ) -> None:
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
@@ -114,6 +115,9 @@ def draw_save(
         plot = draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
         boxes = masks_to_boxes(masks)
         plot = draw_bounding_boxes(plot, boxes)
+        plot = plot / 255
+    if boxes is not None and len(boxes) > 0:
+        plot = draw_bounding_boxes((image * 255).to(torch.uint8), boxes)
         plot = plot / 255
     else:
         plot = image

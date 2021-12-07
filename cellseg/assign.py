@@ -100,7 +100,7 @@ class IoUAssign:
 
 class SimOTA:
     def __init__(
-        self, topk: int, radius: float = 0.5, center_weight: float = 0.1
+        self, topk: int, radius: float = 0.5, center_weight: float = 0.5
     ) -> None:
         self.topk = topk
         self.radius = radius
@@ -121,7 +121,6 @@ class SimOTA:
             & (gt_boxes[:, :, 1] <= anchor_points[:, 1])
             & (anchor_points[:, 1] < gt_boxes[:, :, 3])
         )  # [num_gts, num_proposals]
-
         gt_center_lbound = gt_centers - self.radius * strides.unsqueeze(1)
         gt_center_ubound = gt_centers + self.radius * strides.unsqueeze(1)
 
@@ -147,10 +146,14 @@ class SimOTA:
     ) -> Tensor:  # [gt_index, pred_index]
         device = pred_boxes.device
         gt_count = len(gt_boxes)
-        pred_count = len(gt_boxes)
+        pred_count = len(pred_boxes)
         if gt_count == 0 or pred_count == 0:
             return torch.zeros(0, 2).to(device)
-        candidates, center_matrix = self.candidates(anchor_points, gt_boxes, strides)
+        candidates, center_matrix = self.candidates(
+            anchor_points=anchor_points,
+            gt_boxes=gt_boxes,
+            strides=strides,
+        )
         score_matrix = pred_scores[candidates].expand(gt_count, -1)
         iou_matrix = box_iou(gt_boxes, pred_boxes[candidates])
         matrix = score_matrix + iou_matrix + center_matrix * self.center_weight
@@ -158,8 +161,9 @@ class SimOTA:
         topk_ious, _ = torch.topk(iou_matrix, topk, dim=1)
         dynamic_ks = topk_ious.sum(dim=1).int().clamp(min=1)
 
-        matching_matrix = torch.zeros_like(matrix, dtype=torch.long)
-        for gt_idx, (row, dynamic_topk) in enumerate(zip(matrix, dynamic_ks)):
+        matching_matrix = torch.zeros((gt_count, pred_count), dtype=torch.long)
+        candidate_idx = candidates.nonzero().view(-1)
+        for (row, dynamic_topk, matching_row) in zip(matrix, dynamic_ks, matching_matrix):
             _, pos_idx = torch.topk(row, k=dynamic_topk)
-            matching_matrix[gt_idx][pos_idx] = 1
+            matching_row[candidate_idx[pos_idx]] = 1
         return matching_matrix.nonzero()
