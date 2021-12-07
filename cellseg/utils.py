@@ -108,7 +108,7 @@ def draw_save(
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
-    elif masks is not None and len(masks) > 0:
+    if masks is not None and len(masks) > 0:
         empty_filter = masks.sum(dim=[1, 2]) > 0
         masks = masks[empty_filter]
         masks = masks.to("cpu")
