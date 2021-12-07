@@ -7,11 +7,7 @@ from cellseg.backbones import EfficientNetFPN
 from cellseg.necks import CSPNeck
 from cellseg.utils import draw_save, seed_everything
 from torchvision.ops import box_convert
-from cellseg.data import (
-    CellTrainDataset,
-    Tranform,
-    TrainItem
-)
+from cellseg.data import CellTrainDataset, Tranform, TrainItem
 from pathlib import Path
 from hydra import compose, initialize
 
@@ -19,6 +15,7 @@ initialize(config_path="../config")
 cfg = compose(config_name="mask_yolo")
 has_data = Path(cfg.data.train_file_path).exists()
 seed_everything(cfg.seed)
+
 
 @pytest.fixture
 def mask_yolo() -> MaskYolo:
@@ -45,6 +42,7 @@ def mask_yolo() -> MaskYolo:
         score_threshold=0.0,
         mask_threshold=0.0,
     )
+
 
 @pytest.fixture
 def sample() -> TrainItem:
@@ -147,7 +145,7 @@ def test_to_boxes(
 
 
 @pytest.mark.skipif(not has_data, reason="no data volume")
-def test_assign(sample:TrainItem, mask_yolo:MaskYolo) -> None:
+def test_assign(sample: TrainItem, mask_yolo: MaskYolo) -> None:
     limit = 10
     gt_box_batch = [sample["boxes"][:1]]
     gt_mask_batch = [sample["masks"]]
