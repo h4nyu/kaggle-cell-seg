@@ -100,7 +100,7 @@ class IoUAssign:
 
 class SimOTA:
     def __init__(
-        self, topk: int, radius: float = 0.5, center_weight: float = 0.0
+        self, topk: int, radius: float = 0.5, center_weight: float = 0.1
     ) -> None:
         self.topk = topk
         self.radius = radius
@@ -150,7 +150,7 @@ class SimOTA:
         pred_count = len(gt_boxes)
         if gt_count == 0 or pred_count == 0:
             return torch.zeros(0, 2).to(device)
-        candidates, center_matrix = self.candidates(pred_boxes, gt_boxes, strides)
+        candidates, center_matrix = self.candidates(anchor_points, gt_boxes, strides)
         score_matrix = pred_scores[candidates].expand(gt_count, -1)
         iou_matrix = box_iou(gt_boxes, pred_boxes[candidates])
         matrix = score_matrix + iou_matrix + center_matrix * self.center_weight
