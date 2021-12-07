@@ -60,8 +60,8 @@ def test_mask_yolo_box_branch(mask_yolo: MaskYolo) -> None:
     feats = mask_yolo.feats(images)
     box_feats = mask_yolo.box_feats(feats)
     yolo_batch = mask_yolo.box_branch(box_feats)
-    assert len(yolo_batch) == 2
-    print(yolo_batch[..., :4])
+    assert yolo_batch.shape[0] == 2
+    assert yolo_batch.shape[2] == 5 + mask_yolo.num_classes + 3
 
 
 def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:

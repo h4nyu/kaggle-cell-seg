@@ -44,6 +44,14 @@ def test_atss() -> None:
 
 
 def test_simota() -> None:
+    anchor_points = torch.zeros(6, 2)
+    anchor_points[0] = torch.tensor([2.5, 2.5])
+    anchor_points[1] = torch.tensor([2.5, 2.5])
+    anchor_points[2] = torch.tensor([2.5, 2.5])
+    anchor_points[3] = torch.tensor([5, 5])
+    anchor_points[4] = torch.tensor([2.5, 2.5])
+    anchor_points[5] = torch.tensor([22, 22])
+
     pred_boxes = torch.zeros(6, 4)
     pred_boxes[0] = torch.tensor([5, 5, 6, 6])
     pred_boxes[1] = torch.tensor([5, 5, 7, 7])
@@ -58,7 +66,7 @@ def test_simota() -> None:
     gt_boxes[0] = torch.tensor([5, 5, 9, 9])
     gt_boxes[1] = torch.tensor([0, 0, 10, 10])
     a = SimOTA(topk=6, radius=0.5)
-    pair = a(pred_boxes, pred_scores, gt_boxes, strides)
+    pair = a(anchor_points, pred_boxes, pred_scores, gt_boxes, strides)
     assert pair.tolist() == [
         [0, 2],
         [1, 3],

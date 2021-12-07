@@ -71,7 +71,7 @@ def main(cfg: DictConfig) -> None:
     )
     # dataset = CellTrainDataset(**cfg.dataset)
     loader = DataLoader(
-        Subset(dataset, indices=list(range(10))),
+        Subset(dataset, indices=list(range(3))),
         collate_fn=collate_fn,
         batch_size=1,
     )

@@ -1,5 +1,6 @@
 name: mask_yolo-b2-512-3
 use_amp: true
+use_patch: false
 num_epochs: 100
 device: cuda
 seed: &seed 0 

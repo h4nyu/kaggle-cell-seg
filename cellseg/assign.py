@@ -100,7 +100,7 @@ class IoUAssign:
 
 class SimOTA:
     def __init__(
-        self, topk: int, radius: float = 1.0, center_weight: float = 0.0
+        self, topk: int, radius: float = 0.5, center_weight: float = 0.0
     ) -> None:
         self.topk = topk
         self.radius = radius
@@ -108,29 +108,28 @@ class SimOTA:
 
     def candidates(
         self,
-        pred_boxes: Tensor,
+        anchor_points: Tensor,
         gt_boxes: Tensor,
         strides: Tensor,
     ) -> tuple[Tensor, Tensor]:
         gt_boxes = gt_boxes.unsqueeze(1)
         gt_centers = (gt_boxes[:, :, 0:2] + gt_boxes[:, :, 2:4]) / 2.0
-        pred_centers = (pred_boxes[:, 0:2] + pred_boxes[:, 2:4]) / 2.0
 
         is_in_box = (  # grid cell inside gt-box
-            (gt_boxes[:, :, 0] <= pred_centers[:, 0])
-            & (pred_centers[:, 0] < gt_boxes[:, :, 2])
-            & (gt_boxes[:, :, 1] <= pred_centers[:, 1])
-            & (pred_centers[:, 1] < gt_boxes[:, :, 3])
+            (gt_boxes[:, :, 0] <= anchor_points[:, 0])
+            & (anchor_points[:, 0] < gt_boxes[:, :, 2])
+            & (gt_boxes[:, :, 1] <= anchor_points[:, 1])
+            & (anchor_points[:, 1] < gt_boxes[:, :, 3])
         )  # [num_gts, num_proposals]
 
         gt_center_lbound = gt_centers - self.radius * strides.unsqueeze(1)
         gt_center_ubound = gt_centers + self.radius * strides.unsqueeze(1)
 
         is_in_center = (  # grid cell near gt-box center
-            (gt_center_lbound[:, :, 0] <= pred_centers[:, 0])
-            & (pred_centers[:, 0] < gt_center_ubound[:, :, 0])
-            & (gt_center_lbound[:, :, 1] <= pred_centers[:, 1])
-            & (pred_centers[:, 1] < gt_center_ubound[:, :, 1])
+            (gt_center_lbound[:, :, 0] <= anchor_points[:, 0])
+            & (anchor_points[:, 0] < gt_center_ubound[:, :, 0])
+            & (gt_center_lbound[:, :, 1] <= anchor_points[:, 1])
+            & (anchor_points[:, 1] < gt_center_ubound[:, :, 1])
         )  # [num_gts, num_proposals]
         candidates = (is_in_box | is_in_center).any(dim=0)
         center_matrix = (is_in_box & is_in_center)[
@@ -140,6 +139,7 @@ class SimOTA:
 
     def __call__(
         self,
+        anchor_points: Tensor,
         pred_boxes: Tensor,
         pred_scores: Tensor,
         gt_boxes: Tensor,

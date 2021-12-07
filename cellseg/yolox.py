@@ -163,21 +163,23 @@ class MaskYolo(nn.Module):
         for pred, stride in zip(box_levels, self.box_strides):
             batch_size, num_outputs, rows, cols = pred.shape
             grid = grid_points(rows, cols).to(device)
+            strides = torch.full((batch_size, len(grid), 1), stride).to(device)
+            anchor_points = (grid + 0.5) * strides
             yolo_boxes = (
                 pred.permute(0, 2, 3, 1)
                 .reshape(batch_size, rows * cols, num_outputs)
                 .float()
             )
-            strides = torch.full((batch_size, len(grid), 1), stride).to(device)
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2] + grid) * strides,
+                    (yolo_boxes[..., 0:2].tanh() + grid) * strides,
                     yolo_boxes[..., 2:4].exp() * strides,
                     yolo_boxes[..., 4:],
                     strides,
+                    anchor_points,
                 ],
                 dim=-1,
-            ).reshape(batch_size, rows * cols, num_outputs + 1)
+            )
             yolo_box_list.append(yolo_boxes)
         yolo_batch = torch.cat(yolo_box_list, dim=1)
         return yolo_batch
@@ -396,12 +398,13 @@ class Criterion:
         ):
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
+                gt_boxes=gt_boxes,
                 pred_boxes=box_convert(
                     pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
                 ),
                 pred_scores=pred_yolo[..., 4].sigmoid(),
-                strides=pred_yolo[..., -1],
-                gt_boxes=gt_boxes,
+                strides=pred_yolo[..., 5 + num_classes],
+                anchor_points=pred_yolo[..., 6 + num_classes : 6 + num_classes + 2],
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
@@ -507,10 +510,9 @@ class InferenceStep:
 
     @torch.no_grad()
     def __call__(
-        self, batch: Batch
+        self, images: Tensor
     ) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         self.model.eval()
-        images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
         (
             pred_score_batch,
             pred_box_batch,
