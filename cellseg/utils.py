@@ -108,7 +108,7 @@ def draw_save(
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
         image = image.expand(3, -1, -1)
-    if masks is not None and len(masks) > 0:
+    elif masks is not None and len(masks) > 0:
         empty_filter = masks.sum(dim=[1, 2]) > 0
         masks = masks[empty_filter]
         masks = masks.to("cpu")
@@ -116,7 +116,7 @@ def draw_save(
         boxes = masks_to_boxes(masks)
         plot = draw_bounding_boxes(plot, boxes)
         plot = plot / 255
-    if boxes is not None and len(boxes) > 0:
+    elif boxes is not None and len(boxes) > 0:
         plot = draw_bounding_boxes((image * 255).to(torch.uint8), boxes)
         plot = plot / 255
     else:

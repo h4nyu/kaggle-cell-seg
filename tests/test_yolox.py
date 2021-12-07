@@ -168,12 +168,12 @@ def test_assign(sample:TrainItem, mask_yolo:MaskYolo) -> None:
         images[0],
         boxes=box_convert(
             pred_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
-        )[:limit],
+        ),
     )
     draw_save(
         "/app/test_outputs/yolox-assign-gt.png",
         images[0],
         boxes=box_convert(
             gt_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
-        )[:limit],
+        ),
     )

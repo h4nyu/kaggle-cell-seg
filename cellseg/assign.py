@@ -100,7 +100,7 @@ class IoUAssign:
 
 class SimOTA:
     def __init__(
-        self, topk: int, radius: float = 0.5, center_weight: float = 0.5
+        self, topk: int, radius: float = 0.5, center_weight: float = 1.0
     ) -> None:
         self.topk = topk
         self.radius = radius
@@ -157,13 +157,14 @@ class SimOTA:
         score_matrix = pred_scores[candidates].expand(gt_count, -1)
         iou_matrix = box_iou(gt_boxes, pred_boxes[candidates])
         matrix = score_matrix + iou_matrix + center_matrix * self.center_weight
-        topk = min(self.topk, gt_count)
+        topk = min(self.topk, pred_count)
         topk_ious, _ = torch.topk(iou_matrix, topk, dim=1)
-        dynamic_ks = topk_ious.sum(dim=1).int().clamp(min=1)
-
+        dynamic_ks = topk_ious.sum(1).int().clamp(min=1)
         matching_matrix = torch.zeros((gt_count, pred_count), dtype=torch.long)
         candidate_idx = candidates.nonzero().view(-1)
-        for (row, dynamic_topk, matching_row) in zip(matrix, dynamic_ks, matching_matrix):
+        for (row, dynamic_topk, matching_row) in zip(
+            matrix, dynamic_ks, matching_matrix
+        ):
             _, pos_idx = torch.topk(row, k=dynamic_topk)
             matching_row[candidate_idx[pos_idx]] = 1
         return matching_matrix.nonzero()
