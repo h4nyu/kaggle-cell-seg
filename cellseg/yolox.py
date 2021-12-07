@@ -172,7 +172,7 @@ class MaskYolo(nn.Module):
             )
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2].tanh() + 0.5 + grid) * strides,
+                    (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
                     yolo_boxes[..., 2:4].exp() * strides,
                     yolo_boxes[..., 4:],
                     strides,

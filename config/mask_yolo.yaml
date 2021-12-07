@@ -20,8 +20,8 @@ mask_size: 16
 box_feat_range: [3, 7]
 mask_feat_range: [0, 3]
 hidden_channels: 64
-score_threshold: 0.5
-box_iou_threshold: 0.5
+score_threshold: 0.3
+box_iou_threshold: 0.4
 mask_threshold: 0.5
 
 data:

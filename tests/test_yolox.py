@@ -11,7 +11,7 @@ from cellseg.data import CellTrainDataset, Tranform, TrainItem
 from pathlib import Path
 from hydra import compose, initialize
 
-initialize(config_path="/app/config")
+initialize(config_path="../config")
 cfg = compose(config_name="mask_yolo")
 has_data = Path(cfg.data.train_file_path).exists()
 seed_everything(cfg.seed)
