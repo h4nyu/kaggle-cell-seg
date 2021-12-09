@@ -5,7 +5,8 @@ import os
 from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger, FileHandler
-import torch.optim as optim
+# import torch.optim as optim
+import torch_optimizer as optim
 from cellseg.yolox import (
     MaskYolo,
     Criterion,
@@ -61,8 +62,7 @@ def main(cfg: DictConfig) -> None:
     model = model.to(cfg.device)
     assign = SimOTA(**cfg.assign)
     criterion = Criterion(model=model, assign=assign, **cfg.criterion)
-    optimizer = optim.SGD(model.parameters(), **cfg.optimizer)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
+    optimizer = optim.AdaBound(model.parameters(), **cfg.optimizer)
     train_step = TrainStep(
         optimizer=optimizer,
         criterion=criterion,

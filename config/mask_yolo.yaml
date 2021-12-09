@@ -1,4 +1,4 @@
-name: mask_yolo-b2-512-3
+name: mask_yolo-b2-512-3-48
 use_amp: true
 use_patch: false
 num_epochs: 100
@@ -14,15 +14,15 @@ root_path: &root_path /store
 
 num_classes: 1
 patch_size: 512
-mask_size: 16
+mask_size: 48
 
 # model
-box_feat_range: [3, 7]
+box_feat_range: [3, 6]
 mask_feat_range: [0, 3]
 hidden_channels: 64
 score_threshold: 0.5
-box_iou_threshold: 0.3
-mask_threshold: 0.5
+box_iou_threshold: 0.25
+mask_threshold: 0.4
 
 data:
   root_path: *root_path
@@ -46,7 +46,6 @@ mask_ap:
   thresholds:
     - 0.7
 
-
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
@@ -61,13 +60,13 @@ criterion:
 assign:
   topk: 10
   radius: 2.0
-  center_wight: 0.1
+  center_weight: 0.5
+  obj_weight: 1.5
+  box_weight: 1.0
 
 optimizer:
-  lr: &lr 5.0e-4
+  lr: &lr 5.0e-3
   # lr: &lr 1.0e-4
-  momentum: 0.95
-  nesterov: true
 
 scheduler:
   mode: min
