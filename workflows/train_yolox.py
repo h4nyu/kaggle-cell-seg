@@ -37,7 +37,7 @@ def main(cfg: DictConfig) -> None:
     backbone = EfficientNetFPN(**cfg.backbone)
     checkpoint = Checkpoint[MaskYolo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
-        default_score=float("inf"),
+        default_score=0.0,
     )
     neck = CSPNeck(
         in_channels=backbone.out_channels,
