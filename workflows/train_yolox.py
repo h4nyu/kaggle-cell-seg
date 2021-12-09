@@ -13,6 +13,7 @@ from cellseg.yolox import (
     ValidationStep,
     InferenceStep,
 )
+from cellseg.assign import SimOTA
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
 from cellseg.utils import seed_everything, Checkpoint, MeanReduceDict, ToDevice
@@ -58,7 +59,8 @@ def main(cfg: DictConfig) -> None:
     )
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
-    criterion = Criterion(model=model, **cfg.criterion)
+    assign = SimOTA(**cfg.assign)
+    criterion = Criterion(model=model, assign=assign, **cfg.criterion)
     optimizer = optim.SGD(model.parameters(), **cfg.optimizer)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
     train_step = TrainStep(

@@ -300,6 +300,7 @@ class Criterion:
     def __init__(
         self,
         model: MaskYolo,
+        assign: SimOTA,
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
         cate_weight: float = 1.0,
@@ -314,9 +315,8 @@ class Criterion:
         self.local_mask_weight = local_mask_weight
         self.model = model
         self.strides = self.model.strides
-        self.assign = SimOTA(
-            topk=assign_topk, radius=assign_radius, center_weight=assign_center_wight
-        )
+        self.assign = assign
+
         self.box_loss = CIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits

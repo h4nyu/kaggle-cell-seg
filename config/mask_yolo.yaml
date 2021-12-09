@@ -57,9 +57,11 @@ criterion:
   box_weight: 0.75
   cate_weight: 0.0
   local_mask_weight: 0.3
-  assign_topk: 10
-  assign_radius: 2.0
-  assign_center_wight: 0.1
+
+assign:
+  topk: 10
+  radius: 2.0
+  center_wight: 0.1
 
 optimizer:
   lr: &lr 5.0e-4
