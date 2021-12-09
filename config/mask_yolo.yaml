@@ -14,11 +14,11 @@ root_path: &root_path /store
 
 num_classes: 1
 patch_size: 512
-mask_size: 48
+mask_size: 32
 
 # model
 box_feat_range: [3, 6]
-mask_feat_range: [0, 3]
+mask_feat_range: [0, 2]
 hidden_channels: 64
 score_threshold: 0.5
 box_iou_threshold: 0.25
@@ -65,7 +65,7 @@ assign:
   box_weight: 1.0
 
 optimizer:
-  lr: &lr 5.0e-3
+  lr: &lr 1.0e-3
   # lr: &lr 1.0e-4
 
 scheduler:
@@ -76,12 +76,12 @@ scheduler:
   threshold_mode: abs
 
 train_loader:
-  batch_size: 6
+  batch_size: 4
   shuffle: true
-  num_workers: 3
+  num_workers: 4
   drop_last: true
 
 validation_loader:
-  batch_size: 6
+  batch_size: 4
   shuffle: false
-  num_workers: 3
+  num_workers: 4
