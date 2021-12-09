@@ -1,5 +1,4 @@
 import torch
-import typing
 from torch import Tensor
 from torchvision.ops import box_convert
 from torchvision.ops.boxes import box_iou

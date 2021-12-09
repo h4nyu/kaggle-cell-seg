@@ -20,7 +20,7 @@ mask_size: 16
 box_feat_range: [3, 7]
 mask_feat_range: [0, 3]
 hidden_channels: 64
-score_threshold: 0.3
+score_threshold: 0.5
 box_iou_threshold: 0.3
 mask_threshold: 0.5
 
@@ -59,9 +59,10 @@ criterion:
   local_mask_weight: 0.3
   assign_topk: 10
   assign_radius: 2.0
+  assign_center_wight: 0.1
 
 optimizer:
-  lr: &lr 3.0e-4
+  lr: &lr 5.0e-4
   # lr: &lr 1.0e-4
   momentum: 0.95
   nesterov: true

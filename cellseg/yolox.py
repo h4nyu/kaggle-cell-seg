@@ -306,6 +306,7 @@ class Criterion:
         local_mask_weight: float = 1.0,
         assign_topk: int = 9,
         assign_radius: float = 2.0,
+        assign_center_wight: float = 1.0,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -313,7 +314,9 @@ class Criterion:
         self.local_mask_weight = local_mask_weight
         self.model = model
         self.strides = self.model.strides
-        self.assign = SimOTA(topk=assign_topk, radius=assign_radius)
+        self.assign = SimOTA(
+            topk=assign_topk, radius=assign_radius, center_weight=assign_center_wight
+        )
         self.box_loss = CIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
