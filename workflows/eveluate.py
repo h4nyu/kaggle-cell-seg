@@ -75,11 +75,11 @@ def main(cfg: DictConfig) -> None:
     loader = DataLoader(
         Subset(dataset, indices=list(range(10))),
         collate_fn=collate_fn,
-        batch_size=1,
+        **cfg.validation_loader,
     )
 
     idx = 0
-    mask_ap = MaskAP()
+    mask_ap = MaskAP(**cfg.mask_ap)
     for batch in loader:
         batch = to_device(*batch)
         images, gt_mask_batch, _ = batch

@@ -104,11 +104,11 @@ def main(cfg: DictConfig) -> None:
         val_reduer = MeanReduceDict(keys=cfg.log_keys)
         for batch in val_loader:
             batch = to_device(*batch)
-            validation_log = validation_step(batch)
+            validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
             val_reduer.accumulate(validation_log)
             logger.info(f"eval batch {validation_log} ")
-        if score > val_reduer.value["loss"]:
-            score = checkpoint.save(model, val_reduer.value["loss"])
+        if score < mask_ap.value:
+            score = checkpoint.save(model, mask_ap.value)
             logger.info(f"save checkpoint")
         logger.info(f"epoch eval {score=} {val_reduer.value} {mask_ap.value=}")
 

@@ -43,7 +43,8 @@ backbone:
 
 mask_ap:
   reduce_size: 8
-  use_batch: true
+  thresholds:
+    - 0.7
 
 
 dataset:

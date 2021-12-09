@@ -471,7 +471,11 @@ class ValidationStep:
         self.model = criterion.model
 
     @torch.no_grad()
-    def __call__(self, batch: Batch) -> dict[str, float]:
+    def __call__(
+        self,
+        batch: Batch,
+        on_end: Optional[Callable[[Any, Any], None]] = None,
+    ) -> dict[str, float]:
         self.model.eval()
         images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
         loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
@@ -482,7 +486,17 @@ class ValidationStep:
                 gt_label_batch,
             ),
         )
-        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images[:1])
+        (
+            pred_score_batch,
+            pred_box_batch,
+            pred_label_batch,
+            pred_mask_batch,
+        ) = self.model(images[:1])
+        if on_end is not None:
+            on_end(
+                pred_mask_batch,
+                gt_mask_batch,
+            )
         draw_save(
             "/app/test_outputs/gt.png",
             images[0],
