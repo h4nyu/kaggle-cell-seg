@@ -100,7 +100,7 @@ class IoUAssign:
 
 class SimOTA:
     def __init__(
-        self, topk: int, radius: float = 1.0, center_weight: float = 1.0
+        self, topk: int, radius: float = 1.5, center_weight: float = 1.0
     ) -> None:
         self.topk = topk
         self.radius = radius

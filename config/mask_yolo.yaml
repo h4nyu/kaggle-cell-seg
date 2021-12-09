@@ -21,7 +21,7 @@ box_feat_range: [3, 7]
 mask_feat_range: [0, 3]
 hidden_channels: 64
 score_threshold: 0.3
-box_iou_threshold: 0.4
+box_iou_threshold: 0.3
 mask_threshold: 0.5
 
 data:
@@ -52,14 +52,16 @@ dataset:
   smallest_area: 8
 
 criterion:
-  obj_weight: 5.0
-  box_weight: 0.5
+  obj_weight: 1.0
+  box_weight: 0.75
   cate_weight: 0.0
-  local_mask_weight: 0.5
+  local_mask_weight: 0.3
   assign_topk: 10
+  assign_radius: 2.0
 
 optimizer:
-  lr: &lr 1.0e-3
+  lr: &lr 3.0e-4
+  # lr: &lr 1.0e-4
   momentum: 0.95
   nesterov: true
 
