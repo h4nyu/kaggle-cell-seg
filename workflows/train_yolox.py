@@ -5,7 +5,8 @@ import os
 from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger, FileHandler
-import torch.optim as optim
+# import torch.optim as optim
+import torch_optimizer as optim
 from cellseg.yolox import (
     MaskYolo,
     Criterion,
@@ -13,6 +14,7 @@ from cellseg.yolox import (
     ValidationStep,
     InferenceStep,
 )
+from cellseg.assign import SimOTA
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
 from cellseg.utils import seed_everything, Checkpoint, MeanReduceDict, ToDevice
@@ -37,7 +39,7 @@ def main(cfg: DictConfig) -> None:
     backbone = EfficientNetFPN(**cfg.backbone)
     checkpoint = Checkpoint[MaskYolo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
-        default_score=float("inf"),
+        default_score=0.0,
     )
     neck = CSPNeck(
         in_channels=backbone.out_channels,
@@ -58,9 +60,9 @@ def main(cfg: DictConfig) -> None:
     )
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
-    criterion = Criterion(model=model, **cfg.criterion)
-    optimizer = optim.Adam(model.parameters(), **cfg.optimizer)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg.scheduler)
+    assign = SimOTA(**cfg.assign)
+    criterion = Criterion(model=model, assign=assign, **cfg.criterion)
+    optimizer = optim.AdaBound(model.parameters(), **cfg.optimizer)
     train_step = TrainStep(
         optimizer=optimizer,
         criterion=criterion,
@@ -101,16 +103,13 @@ def main(cfg: DictConfig) -> None:
             logger.info(f"train batch {train_log} ")
         logger.info(f"epoch train {train_reduer.value}")
         mask_ap = MaskAP(**cfg.mask_ap)
-        val_reduer = MeanReduceDict(keys=cfg.log_keys)
         for batch in val_loader:
             batch = to_device(*batch)
-            validation_log = validation_step(batch)
-            val_reduer.accumulate(validation_log)
-            logger.info(f"eval batch {validation_log} ")
-        if score > val_reduer.value["loss"]:
-            score = checkpoint.save(model, val_reduer.value["loss"])
+            validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
+        if score < mask_ap.value:
+            score = checkpoint.save(model, mask_ap.value)
             logger.info(f"save checkpoint")
-        logger.info(f"epoch eval {score=} {val_reduer.value} {mask_ap.value=}")
+        logger.info(f"epoch eval {score=} {mask_ap.value=}")
 
 
 if __name__ == "__main__":

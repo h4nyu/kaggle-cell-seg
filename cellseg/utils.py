@@ -90,12 +90,12 @@ class MeanReduceDict:
 
     def accumulate(self, log: dict[str, float]) -> None:
         for k in self.keys:
-            self.running[k] = self.running.get(k, 0) + log[k]
+            self.running[k] = self.running.get(k, 0) + log.get(k, 0)
         self.num_samples += 1
 
     @property
     def value(self) -> dict[str, float]:
-        return {k: v / max(1, self.num_samples) for k, v in self.running.items()}
+        return {k: self.running.get(k, 0) / max(1, self.num_samples) for k in self.keys}
 
 
 @torch.no_grad()
@@ -103,6 +103,7 @@ def draw_save(
     path: str,
     image: Tensor,
     masks: Optional[Tensor] = None,
+    boxes: Optional[Tensor] = None,
 ) -> None:
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
@@ -114,6 +115,9 @@ def draw_save(
         plot = draw_segmentation_masks((image * 255).to(torch.uint8), masks, alpha=0.3)
         boxes = masks_to_boxes(masks)
         plot = draw_bounding_boxes(plot, boxes)
+        plot = plot / 255
+    elif boxes is not None and len(boxes) > 0:
+        plot = draw_bounding_boxes((image * 255).to(torch.uint8), boxes)
         plot = plot / 255
     else:
         plot = image

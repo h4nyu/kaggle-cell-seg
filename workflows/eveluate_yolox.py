@@ -7,15 +7,12 @@ from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger
 import torch_optimizer as optim
-from cellseg.solo import (
-    Solo,
-    TrainStep,
+from cellseg.yolox import (
+    MaskYolo,
     Criterion,
+    TrainStep,
     ValidationStep,
-    ToMasks,
-    PatchInferenceStep,
     InferenceStep,
-    BatchAdaptor,
 )
 from cellseg.metrics import MaskAP
 from cellseg.backbones import EfficientNetFPN
@@ -37,12 +34,12 @@ from torch.utils.data import Subset, DataLoader
 from pathlib import Path
 
 
-@hydra.main(config_path="/app/config", config_name="solo")
+@hydra.main(config_path="/app/config", config_name="mask_yolo")
 def main(cfg: DictConfig) -> None:
     seed_everything(cfg.seed)
     logger = getLogger(cfg.name)
     backbone = EfficientNetFPN(**cfg.backbone)
-    checkpoint = Checkpoint[Solo](
+    checkpoint = Checkpoint[MaskYolo](
         root_path=os.path.join(cfg.data.root_path, f"{cfg.name}"),
         default_score=float("inf"),
     )
@@ -51,21 +48,22 @@ def main(cfg: DictConfig) -> None:
         out_channels=backbone.out_channels,
         strides=backbone.strides,
     )
-    model = Solo(**cfg.model, backbone=backbone, neck=neck)
+    model = MaskYolo(
+        backbone=backbone,
+        neck=neck,
+        mask_size=cfg.mask_size,
+        box_feat_range=cfg.box_feat_range,
+        mask_feat_range=cfg.mask_feat_range,
+        num_classes=cfg.num_classes,
+        patch_size=cfg.patch_size,
+        score_threshold=cfg.score_threshold,
+        mask_threshold=cfg.mask_threshold,
+        box_iou_threshold=cfg.box_iou_threshold,
+    )
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
-    batch_adaptor = BatchAdaptor(
-        num_classes=cfg.num_classes,
-        grid_size=cfg.model.grid_size,
-        patch_size=cfg.patch_size,
-    )
-    to_masks = ToMasks(**cfg.to_masks, patch_size=cfg.patch_size)
-    inference_step = PatchInferenceStep(
+    inference_step = InferenceStep(
         model=model,
-        to_masks=to_masks,
-        batch_adaptor=batch_adaptor,
-        use_amp=cfg.use_amp,
-        patch_size=cfg.patch_size,
     )
     to_device = ToDevice(cfg.device)
     dataset = CellTrainDataset(
@@ -73,18 +71,18 @@ def main(cfg: DictConfig) -> None:
     )
     # dataset = CellTrainDataset(**cfg.dataset)
     loader = DataLoader(
-        Subset(dataset, indices=list(range(10))),
+        dataset,
         collate_fn=collate_fn,
-        **cfg.validation_loader,
+        batch_size=1,
     )
 
     idx = 0
-    mask_ap = MaskAP(**cfg.mask_ap)
+    mask_ap = MaskAP()
     for batch in loader:
         batch = to_device(*batch)
-        images, gt_mask_batch, _ = batch
-        mask_batch, _ = inference_step(images)
-        for image, masks, gt_masks in zip(images, mask_batch, gt_mask_batch):
+        images, gt_mask_batch, _, _ = batch
+        _, _, _, pred_mask_batch = inference_step(images)
+        for image, masks, gt_masks in zip(images, pred_mask_batch, gt_mask_batch):
             pred_count = masks.shape[0]
             gt_count = gt_masks.shape[0]
             if gt_count == 0:

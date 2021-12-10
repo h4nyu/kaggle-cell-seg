@@ -1,5 +1,6 @@
-name: mask_yolo-test
+name: mask_yolo-b2-512-3-48
 use_amp: true
+use_patch: false
 num_epochs: 100
 device: cuda
 seed: &seed 0 
@@ -12,20 +13,16 @@ log_keys:
 root_path: &root_path /store
 
 num_classes: 1
-patch_size: 768
-mask_size: 8
+patch_size: 512
+mask_size: 32
 
 # model
 box_feat_range: [3, 6]
-mask_feat_range: [0, 4]
+mask_feat_range: [0, 2]
 hidden_channels: 64
 score_threshold: 0.5
-box_iou_threshold: 0.5
-mask_threshold: 0.5
-
-
-# to masks
-use_global_mask: true
+box_iou_threshold: 0.25
+mask_threshold: 0.4
 
 data:
   root_path: *root_path
@@ -42,14 +39,10 @@ fold:
   seed: *seed
 
 backbone:
-  name: "efficientnet-b0"
+  name: "efficientnet-b2"
 
 mask_ap:
-  reduce_size: 8
-  use_batch: true
-  # thresholds:
-  #   - 0.7
-
+  reduce_size: 4
 
 dataset:
   img_dir: /store/train
@@ -57,15 +50,22 @@ dataset:
   smallest_area: 8
 
 criterion:
-  obj_weight: 5.0
-  box_weight: 0.5
+  obj_weight: 1.0
+  box_weight: 0.75
   cate_weight: 0.0
-  local_mask_weight: 0.5
-  assign_topk: 19
+  local_mask_weight: 0.3
+
+assign:
+  topk: 10
+  radius: 2.0
+  center_weight: 0.5
+  obj_weight: 1.0
+  box_weight: 1.5
 
 optimizer:
-  lr: 1e-3
-  # lr: 5e-4
+  # lr: &lr 1.0e-3
+  # lr: &lr 5.0e-4
+  lr: &lr 1.0e-4
 
 scheduler:
   mode: min
@@ -75,12 +75,12 @@ scheduler:
   threshold_mode: abs
 
 train_loader:
-  batch_size: 4
+  batch_size: 3
   shuffle: true
   num_workers: 3
   drop_last: true
 
 validation_loader:
-  batch_size: 4
+  batch_size: 3
   shuffle: false
   num_workers: 3

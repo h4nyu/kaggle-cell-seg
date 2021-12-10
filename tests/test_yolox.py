@@ -5,7 +5,17 @@ from cellseg.yolox import MaskYolo, Criterion
 from torchvision.ops import masks_to_boxes
 from cellseg.backbones import EfficientNetFPN
 from cellseg.necks import CSPNeck
-from cellseg.utils import draw_save
+from cellseg.utils import draw_save, seed_everything
+from cellseg.assign import SimOTA
+from torchvision.ops import box_convert
+from cellseg.data import CellTrainDataset, Tranform, TrainItem
+from pathlib import Path
+from hydra import compose, initialize
+
+initialize(config_path="../config")
+cfg = compose(config_name="mask_yolo")
+has_data = Path(cfg.data.train_file_path).exists()
+seed_everything(cfg.seed)
 
 
 @pytest.fixture
@@ -36,6 +46,23 @@ def mask_yolo() -> MaskYolo:
 
 
 @pytest.fixture
+def assign() -> SimOTA:
+    return SimOTA(topk=10)
+
+
+@pytest.fixture
+def sample() -> TrainItem:
+    transform = Tranform(size=cfg.patch_size)
+    dataset = CellTrainDataset(
+        transform=transform,
+        **cfg.dataset,
+    )
+    sample = dataset[1]
+    assert sample is not None
+    return sample
+
+
+@pytest.fixture
 def targets() -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
     masks0 = torch.zeros(1, 128, 128, dtype=torch.bool)
     masks0[0, 10:20, 30:40] = True
@@ -60,7 +87,8 @@ def test_mask_yolo_box_branch(mask_yolo: MaskYolo) -> None:
     feats = mask_yolo.feats(images)
     box_feats = mask_yolo.box_feats(feats)
     yolo_batch = mask_yolo.box_branch(box_feats)
-    assert len(yolo_batch) == 2
+    assert yolo_batch.shape[0] == 2
+    assert yolo_batch.shape[2] == 5 + mask_yolo.num_classes + 3
 
 
 def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
@@ -87,9 +115,11 @@ def test_mask_yolo_local_mask_branch(mask_yolo: MaskYolo) -> None:
 
 
 def test_criterion(
-    mask_yolo: MaskYolo, targets: tuple[list[Tensor], list[Tensor], list[Tensor]]
+    mask_yolo: MaskYolo,
+    assign: SimOTA,
+    targets: tuple[list[Tensor], list[Tensor], list[Tensor]],
 ) -> None:
-    criterion = Criterion(model=mask_yolo)
+    criterion = Criterion(model=mask_yolo, assign=assign)
     images = torch.rand(2, 3, 128, 128)
     criterion(inputs=(images,), targets=targets)
 
@@ -120,3 +150,37 @@ def test_to_boxes(
     assert score_batch[0][0] == 0.9
     assert box_batch[0][0].tolist() == [10.0, 20.0, 20.0, 40.0]
     assert lable_batch[0][0] == 1
+
+
+@pytest.mark.skipif(not has_data, reason="no data volume")
+def test_assign(sample: TrainItem, mask_yolo: MaskYolo, assign: SimOTA) -> None:
+    limit = 10
+    box_idx = 5
+    gt_box_batch = [sample["boxes"][box_idx:box_idx+1]]
+    gt_mask_batch = [sample["masks"]]
+    gt_label_batch = [sample["labels"]]
+    images = sample["image"].unsqueeze(0)
+    feats = mask_yolo.feats(images)
+    box_feats = mask_yolo.box_feats(feats)
+    pred_yolo_batch = mask_yolo.box_branch(box_feats)
+    num_classes = mask_yolo.num_classes
+    criterion = Criterion(model=mask_yolo, assign=assign)
+
+    gt_yolo_batch, gt_local_mask_batch, pos_idx = criterion.prepeare_box_gt(
+        gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
+    )
+    pos_idx = pos_idx
+    draw_save(
+        "/app/test_outputs/yolox-assign-anchor.png",
+        images[0],
+        boxes=box_convert(
+            pred_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
+        ),
+    )
+    draw_save(
+        "/app/test_outputs/yolox-assign-gt.png",
+        images[0],
+        boxes=box_convert(
+            gt_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
+        ),
+    )

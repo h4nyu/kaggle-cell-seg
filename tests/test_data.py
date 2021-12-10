@@ -15,6 +15,7 @@ from torchvision.io import read_image
 import os
 import matplotlib.pyplot as plt
 from pathlib import Path
+from cellseg.assign import SimOTA
 
 initialize(config_path="../config")
 cfg = compose(config_name="config")

@@ -9,9 +9,9 @@ from .backbones import FPNLike
 from .necks import NeckLike
 from .heads import MaskHead
 from .utils import grid_points, draw_save
-from .loss import DIoULoss, FocalLoss
+from .loss import CIoULoss, FocalLoss
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
-from .assign import ATSS
+from .assign import ATSS, SimOTA
 from cellseg.utils import round_to
 import math
 
@@ -139,6 +139,10 @@ class MaskYolo(nn.Module):
         self.strides = self.neck.strides
         self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
         self.mask_stride = self.strides[self.mask_feat_range[0]]
+        self.box_iou_threshold = box_iou_threshold
+        self.score_threshold = score_threshold
+        self.mask_threshold = mask_threshold
+
         self.box_head = YoloxHead(
             in_channels=neck.out_channels[
                 self.box_feat_range[0] : self.box_feat_range[1]
@@ -151,9 +155,6 @@ class MaskYolo(nn.Module):
             ),
             out_channels=1,
         )
-        self.box_iou_threshold = box_iou_threshold
-        self.score_threshold = score_threshold
-        self.mask_threshold = mask_threshold
 
     def box_branch(self, feats: list[Tensor]) -> Tensor:
         device = feats[0].device
@@ -162,7 +163,8 @@ class MaskYolo(nn.Module):
         for pred, stride in zip(box_levels, self.box_strides):
             batch_size, num_outputs, rows, cols = pred.shape
             grid = grid_points(rows, cols).to(device)
-            strides = torch.full((len(grid),), stride).to(device)
+            strides = torch.full((batch_size, len(grid), 1), stride).to(device)
+            anchor_points = (grid + 0.5) * strides
             yolo_boxes = (
                 pred.permute(0, 2, 3, 1)
                 .reshape(batch_size, rows * cols, num_outputs)
@@ -170,12 +172,14 @@ class MaskYolo(nn.Module):
             )
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2] + grid) * stride,
-                    yolo_boxes[..., 2:4].exp() * stride,
+                    (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
+                    yolo_boxes[..., 2:4].exp() * strides,
                     yolo_boxes[..., 4:],
+                    strides,
+                    anchor_points,
                 ],
                 dim=-1,
-            ).reshape(batch_size, rows * cols, num_outputs)
+            )
             yolo_box_list.append(yolo_boxes)
         yolo_batch = torch.cat(yolo_box_list, dim=1)
         return yolo_batch
@@ -207,17 +211,19 @@ class MaskYolo(nn.Module):
     def mask_feats(self, x: list[Tensor]) -> list[Tensor]:
         return x[self.mask_feat_range[0] : self.mask_feat_range[1]]
 
+    @torch.no_grad()
     def to_boxes(
         self, yolo_batch: Tensor
     ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
         score_batch, box_batch, lable_batch = [], [], []
         device = yolo_batch.device
+        num_classes = self.num_classes
         batch = torch.zeros((*yolo_batch.shape[:2], 6)).to(device)
         batch[..., :4] = box_convert(
             yolo_batch[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
         )
         batch[..., 4] = yolo_batch[..., 4].sigmoid()
-        batch[..., 5] = yolo_batch[..., 5:].argmax(-1)
+        batch[..., 5] = yolo_batch[..., 5 : 5 + num_classes].argmax(-1)
         for r in batch:
             th_filter = r[..., 4] > self.score_threshold
             r = r[th_filter]
@@ -235,14 +241,20 @@ class MaskYolo(nn.Module):
             lable_batch.append(lables[nms_index])
         return score_batch, box_batch, lable_batch
 
+    @torch.no_grad()
     def to_masks(
-        self, all_local_masks: Tensor, box_batch: list[Tensor]
-    ) -> list[Tensor]:
+        self,
+        all_local_masks: Tensor,
+        score_batch: list[Tensor],
+        box_batch: list[Tensor],
+        label_batch: list[Tensor],
+    ) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         mask_batch = []
         cur = 0
         device = all_local_masks.device
         all_local_masks = all_local_masks.sigmoid()
-        for boxes in box_batch:
+        out_box_batch, out_lable_batch, out_score_batch = [], [], []
+        for boxes, scores, labels in zip(box_batch, score_batch, label_batch):
             # masks = torch.zeros(len(boxes), self.patch_size, self.patch_size).to(device)
             local_masks = all_local_masks[cur : cur + len(boxes)].squeeze(1)
             # mask_batch.append()
@@ -262,8 +274,12 @@ class MaskYolo(nn.Module):
                     1, *restored_mask.shape[2:]
                 )
             masks = masks > self.mask_threshold
-            mask_batch.append(masks)
-        return mask_batch
+            empty_filter = masks.sum(dim=[1, 2]) > 0
+            out_box_batch.append(boxes[empty_filter])
+            mask_batch.append(masks[empty_filter])
+            out_score_batch.append(scores[empty_filter])
+            out_lable_batch.append(labels[empty_filter])
+        return mask_batch, out_score_batch, out_box_batch, out_lable_batch
 
     def forward(
         self, image_batch: Tensor
@@ -274,7 +290,9 @@ class MaskYolo(nn.Module):
         score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
         mask_feats = self.mask_feats(feats)
         masks = self.local_mask_branch(box_batch, mask_feats)
-        mask_batch = self.to_masks(masks, box_batch)
+        mask_batch, score_batch, box_batch, label_batch = self.to_masks(
+            masks, score_batch, box_batch, label_batch
+        )
         return score_batch, box_batch, label_batch, mask_batch
 
 
@@ -282,11 +300,15 @@ class Criterion:
     def __init__(
         self,
         model: MaskYolo,
+        assign: SimOTA,
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
         cate_weight: float = 1.0,
         local_mask_weight: float = 1.0,
         assign_topk: int = 9,
+        assign_radius: float = 2.0,
+        assign_center_wight: float = 1.0,
+        local_mask_limit:int = 1,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -294,11 +316,13 @@ class Criterion:
         self.local_mask_weight = local_mask_weight
         self.model = model
         self.strides = self.model.strides
-        self.assign = ATSS(topk=assign_topk)
-        self.box_loss = DIoULoss()
+        self.assign = assign
+
+        self.box_loss = CIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
         self.cate_loss = F.binary_cross_entropy_with_logits
+        self.local_mask_limit = local_mask_limit
 
     def __call__(
         self,
@@ -308,12 +332,15 @@ class Criterion:
         (images,) = inputs  # list of [b, num_classes + 5, h, w]
         gt_mask_batch, gt_box_batch, gt_label_batch = targets
         device = images.device
+        num_classes = self.model.num_classes
         feats = self.model.feats(images)
         box_feats = self.model.box_feats(feats)
         pred_yolo_batch = self.model.box_branch(box_feats)
-        gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_gt(
+        gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_box_gt(
             gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
+        # filtered_gt_box_batch = gt_box_batch[:1]
+        gt_local_mask_batch = self.prepeare_mask_gt(gt_mask_batch[:self.local_mask_limit], gt_box_batch[:self.local_mask_limit])
 
         # # 1-stage
         obj_loss = self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
@@ -334,13 +361,13 @@ class Criterion:
                 ),
             )
             cate_loss += self.cate_loss(
-                pred_yolo_batch[..., 5:][pos_idx],
-                gt_yolo_batch[..., 5:][pos_idx],
+                pred_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
+                gt_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
             )
 
             # 2-stage
             pred_local_masks = self.model.local_mask_branch(
-                gt_box_batch,
+                gt_box_batch[:self.local_mask_limit],
                 self.model.mask_feats(feats),
             )
             local_mask_loss += self.local_mask_loss(
@@ -356,7 +383,7 @@ class Criterion:
         return loss, obj_loss, box_loss, cate_loss, local_mask_loss
 
     @torch.no_grad()
-    def prepeare_gt(
+    def prepeare_box_gt(
         self,
         gt_mask_batch: list[Tensor],
         gt_boxes_batch: list[Tensor],
@@ -379,12 +406,17 @@ class Criterion:
         ):
             gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
-                box_convert(pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"),
-                gt_boxes,
+                gt_boxes=gt_boxes,
+                pred_boxes=box_convert(
+                    pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
+                ),
+                pred_scores=pred_yolo[..., 4].sigmoid(),
+                strides=pred_yolo[..., 5 + num_classes],
+                anchor_points=pred_yolo[..., 6 + num_classes : 6 + num_classes + 2],
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
-            gt_yolo_batch[batch_idx, matched[:, 1], 5:] = F.one_hot(
+            gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = F.one_hot(
                 gt_labels[matched[:, 0]], num_classes
             ).to(gt_yolo_batch)
             gt_local_masks = roi_align(
@@ -397,6 +429,26 @@ class Criterion:
         pos_idx = gt_yolo_batch[..., 4] == 1.0
         gt_local_mask_batch = torch.cat(gt_local_mask_list)
         return gt_yolo_batch, gt_local_mask_batch, pos_idx
+
+    @torch.no_grad()
+    def prepeare_mask_gt(
+        self,
+        gt_mask_batch: list[Tensor],
+        gt_boxes_batch: list[Tensor],
+    ) -> Tensor:
+        device = gt_mask_batch[0].device
+        mask_size = self.model.mask_size
+        mask_stride = self.model.mask_stride
+        gt_local_mask_list = []
+        for gt_masks, gt_boxes in zip(gt_mask_batch, gt_boxes_batch):
+            gt_local_masks = roi_align(
+                gt_masks.float().unsqueeze(1),
+                list(gt_boxes.unsqueeze(1)),
+                mask_size,
+            )
+            gt_local_mask_list.append(gt_local_masks)
+        gt_local_mask_batch = torch.cat(gt_local_mask_list)
+        return gt_local_mask_batch
 
 
 class TrainStep:
@@ -446,19 +498,24 @@ class ValidationStep:
         self.model = criterion.model
 
     @torch.no_grad()
-    def __call__(self, batch: Batch) -> dict[str, float]:
+    def __call__(
+        self,
+        batch: Batch,
+        on_end: Optional[Callable[[Any, Any], None]] = None,
+    ) -> dict[str, float]:
         self.model.eval()
         images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
-        loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
-            (images,),
-            (
+        (
+            pred_score_batch,
+            pred_box_batch,
+            pred_label_batch,
+            pred_mask_batch,
+        ) = self.model(images)
+        if on_end is not None:
+            on_end(
+                pred_mask_batch,
                 gt_mask_batch,
-                gt_box_batch,
-                gt_label_batch,
-            ),
-        )
-
-        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images[:1])
+            )
         draw_save(
             "/app/test_outputs/gt.png",
             images[0],
@@ -469,14 +526,7 @@ class ValidationStep:
             images[0],
             pred_mask_batch[0],
         )
-
-        return dict(
-            loss=loss.item(),
-            obj_loss=obj_loss.item(),
-            box_loss=box_loss.item(),
-            cate_loss=cate_loss.item(),
-            local_mask_loss=local_mask_loss.item(),
-        )
+        return dict()
 
 
 class InferenceStep:
@@ -487,9 +537,15 @@ class InferenceStep:
         self.model = model
 
     @torch.no_grad()
-    def __call__(self, batch: Batch) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+    def __call__(
+        self, images: Tensor
+    ) -> tuple[list[Tensor], list[Tensor], list[Tensor], list[Tensor]]:
         self.model.eval()
-        images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
-        pred_score_batch, _, pred_label_batch, pred_mask_batch = self.model(images)
+        (
+            pred_score_batch,
+            pred_box_batch,
+            pred_label_batch,
+            pred_mask_batch,
+        ) = self.model(images)
 
-        return pred_score_batch, pred_mask_batch, pred_label_batch
+        return pred_score_batch, pred_box_batch, pred_label_batch, pred_mask_batch
