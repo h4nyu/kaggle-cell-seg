@@ -90,7 +90,7 @@ class MeanReduceDict:
 
     def accumulate(self, log: dict[str, float]) -> None:
         for k in self.keys:
-            self.running[k] = self.running.get(k, 0) + log[k]
+            self.running[k] = self.running.get(k, 0) + log.get(k, 0)
         self.num_samples += 1
 
     @property

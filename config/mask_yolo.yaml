@@ -42,9 +42,7 @@ backbone:
   name: "efficientnet-b2"
 
 mask_ap:
-  reduce_size: 8
-  thresholds:
-    - 0.7
+  reduce_size: 4
 
 dataset:
   img_dir: /store/train
@@ -61,12 +59,13 @@ assign:
   topk: 10
   radius: 2.0
   center_weight: 0.5
-  obj_weight: 1.5
-  box_weight: 1.0
+  obj_weight: 1.0
+  box_weight: 1.5
 
 optimizer:
-  lr: &lr 1.0e-3
-  # lr: &lr 1.0e-4
+  # lr: &lr 1.0e-3
+  # lr: &lr 5.0e-4
+  lr: &lr 1.0e-4
 
 scheduler:
   mode: min
@@ -76,12 +75,12 @@ scheduler:
   threshold_mode: abs
 
 train_loader:
-  batch_size: 4
+  batch_size: 3
   shuffle: true
-  num_workers: 4
+  num_workers: 3
   drop_last: true
 
 validation_loader:
-  batch_size: 4
+  batch_size: 3
   shuffle: false
-  num_workers: 4
+  num_workers: 3

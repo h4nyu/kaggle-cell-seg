@@ -166,7 +166,7 @@ def test_assign(sample: TrainItem, mask_yolo: MaskYolo, assign: SimOTA) -> None:
     num_classes = mask_yolo.num_classes
     criterion = Criterion(model=mask_yolo, assign=assign)
 
-    gt_yolo_batch, gt_local_mask_batch, pos_idx = criterion.prepeare_gt(
+    gt_yolo_batch, gt_local_mask_batch, pos_idx = criterion.prepeare_box_gt(
         gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
     )
     pos_idx = pos_idx

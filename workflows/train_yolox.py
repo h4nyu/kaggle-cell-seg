@@ -103,16 +103,13 @@ def main(cfg: DictConfig) -> None:
             logger.info(f"train batch {train_log} ")
         logger.info(f"epoch train {train_reduer.value}")
         mask_ap = MaskAP(**cfg.mask_ap)
-        val_reduer = MeanReduceDict(keys=cfg.log_keys)
         for batch in val_loader:
             batch = to_device(*batch)
             validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
-            val_reduer.accumulate(validation_log)
-            logger.info(f"eval batch {validation_log} ")
         if score < mask_ap.value:
             score = checkpoint.save(model, mask_ap.value)
             logger.info(f"save checkpoint")
-        logger.info(f"epoch eval {score=} {val_reduer.value} {mask_ap.value=}")
+        logger.info(f"epoch eval {score=} {mask_ap.value=}")
 
 
 if __name__ == "__main__":

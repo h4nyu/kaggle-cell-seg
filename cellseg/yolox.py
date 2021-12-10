@@ -308,6 +308,7 @@ class Criterion:
         assign_topk: int = 9,
         assign_radius: float = 2.0,
         assign_center_wight: float = 1.0,
+        local_mask_limit:int = 1,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -321,6 +322,7 @@ class Criterion:
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.local_mask_loss = F.binary_cross_entropy_with_logits
         self.cate_loss = F.binary_cross_entropy_with_logits
+        self.local_mask_limit = local_mask_limit
 
     def __call__(
         self,
@@ -334,9 +336,11 @@ class Criterion:
         feats = self.model.feats(images)
         box_feats = self.model.box_feats(feats)
         pred_yolo_batch = self.model.box_branch(box_feats)
-        gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_gt(
+        gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_box_gt(
             gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
+        # filtered_gt_box_batch = gt_box_batch[:1]
+        gt_local_mask_batch = self.prepeare_mask_gt(gt_mask_batch[:self.local_mask_limit], gt_box_batch[:self.local_mask_limit])
 
         # # 1-stage
         obj_loss = self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
@@ -363,7 +367,7 @@ class Criterion:
 
             # 2-stage
             pred_local_masks = self.model.local_mask_branch(
-                gt_box_batch,
+                gt_box_batch[:self.local_mask_limit],
                 self.model.mask_feats(feats),
             )
             local_mask_loss += self.local_mask_loss(
@@ -379,7 +383,7 @@ class Criterion:
         return loss, obj_loss, box_loss, cate_loss, local_mask_loss
 
     @torch.no_grad()
-    def prepeare_gt(
+    def prepeare_box_gt(
         self,
         gt_mask_batch: list[Tensor],
         gt_boxes_batch: list[Tensor],
@@ -425,6 +429,26 @@ class Criterion:
         pos_idx = gt_yolo_batch[..., 4] == 1.0
         gt_local_mask_batch = torch.cat(gt_local_mask_list)
         return gt_yolo_batch, gt_local_mask_batch, pos_idx
+
+    @torch.no_grad()
+    def prepeare_mask_gt(
+        self,
+        gt_mask_batch: list[Tensor],
+        gt_boxes_batch: list[Tensor],
+    ) -> Tensor:
+        device = gt_mask_batch[0].device
+        mask_size = self.model.mask_size
+        mask_stride = self.model.mask_stride
+        gt_local_mask_list = []
+        for gt_masks, gt_boxes in zip(gt_mask_batch, gt_boxes_batch):
+            gt_local_masks = roi_align(
+                gt_masks.float().unsqueeze(1),
+                list(gt_boxes.unsqueeze(1)),
+                mask_size,
+            )
+            gt_local_mask_list.append(gt_local_masks)
+        gt_local_mask_batch = torch.cat(gt_local_mask_list)
+        return gt_local_mask_batch
 
 
 class TrainStep:
@@ -481,20 +505,12 @@ class ValidationStep:
     ) -> dict[str, float]:
         self.model.eval()
         images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
-        loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
-            (images,),
-            (
-                gt_mask_batch,
-                gt_box_batch,
-                gt_label_batch,
-            ),
-        )
         (
             pred_score_batch,
             pred_box_batch,
             pred_label_batch,
             pred_mask_batch,
-        ) = self.model(images[:1])
+        ) = self.model(images)
         if on_end is not None:
             on_end(
                 pred_mask_batch,
@@ -510,13 +526,7 @@ class ValidationStep:
             images[0],
             pred_mask_batch[0],
         )
-        return dict(
-            loss=loss.item(),
-            obj_loss=obj_loss.item(),
-            box_loss=box_loss.item(),
-            cate_loss=cate_loss.item(),
-            local_mask_loss=local_mask_loss.item(),
-        )
+        return dict()
 
 
 class InferenceStep:
