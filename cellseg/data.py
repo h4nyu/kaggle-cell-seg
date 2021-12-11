@@ -125,24 +125,26 @@ class Tranform:
         return self.transform(*args, **kargs)
 
 
-def collate_fn(
-    batch: list[TrainItem],
-) -> TrainBatch:
-    images: list[Tensor] = []
-    mask_batch: list[Tensor] = []
-    box_batch: list[Tensor] = []
-    label_batch: list[Tensor] = []
-    for row in batch:
-        images.append(row["image"])
-        mask_batch.append(row["masks"])
-        box_batch.append(row["boxes"])
-        label_batch.append(row["labels"])
-    return dict(
-        images=torch.stack(images),
-        mask_batch=mask_batch,
-        box_batch=box_batch,
-        label_batch=label_batch,
-    )
+class CollateFn:
+    def __init__(self, transform: Any = None) -> None:
+        self.transform = None
+
+    def __call__(self, batch: list[TrainItem]) -> TrainBatch:
+        images: list[Tensor] = []
+        mask_batch: list[Tensor] = []
+        box_batch: list[Tensor] = []
+        label_batch: list[Tensor] = []
+        for row in batch:
+            images.append(row["image"])
+            mask_batch.append(row["masks"])
+            box_batch.append(row["boxes"])
+            label_batch.append(row["labels"])
+        return dict(
+            images=torch.stack(images),
+            mask_batch=mask_batch,
+            box_batch=box_batch,
+            label_batch=label_batch,
+        )
 
 
 class CellTrainDataset(Dataset):

@@ -22,7 +22,7 @@ from cellseg.utils import seed_everything, Checkpoint, MeanReduceDict, ToDevice
 from cellseg.data import (
     get_fold_indices,
     CellTrainDataset,
-    collate_fn,
+    CollateFn,
     TrainTranform,
     Tranform,
 )
@@ -85,6 +85,7 @@ def main(cfg: DictConfig) -> None:
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)
+    collate_fn = CollateFn()
     train_loader = DataLoader(
         Subset(train_dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader
     )

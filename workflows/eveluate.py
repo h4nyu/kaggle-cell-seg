@@ -29,7 +29,7 @@ from cellseg.utils import (
 from cellseg.data import (
     get_fold_indices,
     CellTrainDataset,
-    collate_fn,
+    CollateFn,
     Tranform,
 )
 from cellseg.necks import CSPNeck
@@ -72,6 +72,7 @@ def main(cfg: DictConfig) -> None:
         **cfg.dataset, transform=Tranform(cfg.patch_size, use_patch=cfg.use_patch)
     )
     # dataset = CellTrainDataset(**cfg.dataset)
+    collate_fn = CollateFn()
     loader = DataLoader(
         Subset(dataset, indices=list(range(10))),
         collate_fn=collate_fn,

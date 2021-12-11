@@ -7,7 +7,7 @@ import os
 import torch.nn.functional as F
 from cellseg.data import (
     CellTrainDataset,
-    collate_fn,
+    CollateFn,
 )
 from cellseg.solo import (
     ToCategoryGrid,
@@ -260,6 +260,7 @@ def test_inference_step() -> None:
     image = sample["image"]
     masks = sample["masks"]
     labels = sample["labels"]
+    collate_fn = CollateFn()
     loader = DataLoader(
         dataset,
         collate_fn=collate_fn,
