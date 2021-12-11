@@ -1,6 +1,13 @@
 import pytest
 import torch
-from cellseg.loss import DiceLoss, FocalLoss, DIoULoss, SCALoss, CIoULoss
+from cellseg.loss import (
+    DiceLoss,
+    FocalLoss,
+    DIoULoss,
+    SCALoss,
+    CIoULoss,
+    FocalLossWithLogits,
+)
 
 
 @pytest.mark.parametrize(
@@ -13,7 +20,22 @@ from cellseg.loss import DiceLoss, FocalLoss, DIoULoss, SCALoss, CIoULoss
 def test_binary_focal_loss(factor: float, expected: float) -> None:
     loss = FocalLoss()
     inputs = torch.ones(1, 1, 3, 3) * factor
-    targets = torch.zeros(1, 1, 3, 3).bool()
+    targets = torch.zeros(1, 1, 3, 3).float()
+    res = loss(inputs, targets)
+    assert round(res.item(), 1) == expected
+
+
+@pytest.mark.parametrize(
+    "factor, expected",
+    [
+        (-100, 0.0),
+        (100, 200),
+    ],
+)
+def test_binary_focal_loss_with_logits(factor: float, expected: float) -> None:
+    loss = FocalLossWithLogits()
+    inputs = torch.ones(1, 1, 3, 3) * factor
+    targets = torch.zeros(1, 1, 3, 3).float()
     res = loss(inputs, targets)
     assert round(res.item(), 1) == expected
 

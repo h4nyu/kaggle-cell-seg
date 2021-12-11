@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor
-from typing import Callable, Any, Optional
+from typing import Callable, Any, Optional, TypedDict
 from torch.cuda.amp import GradScaler, autocast
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,15 +9,21 @@ from .backbones import FPNLike
 from .necks import NeckLike
 from .heads import MaskHead
 from .utils import grid_points, draw_save
-from .loss import CIoULoss, FocalLoss
+from .loss import CIoULoss, FocalLossWithLogits
 from torchvision.ops import roi_align, box_convert, masks_to_boxes, batched_nms
 from .assign import ATSS, SimOTA
 from cellseg.utils import round_to
 import math
 
-Batch = tuple[
-    Tensor, list[Tensor], list[Tensor], list[Tensor]
-]  # id, images, mask_batch, box_batch label_batch
+TrainBatch = TypedDict(
+    "TrainBatch",
+    {
+        "images": Tensor,
+        "mask_batch": list[Tensor],
+        "box_batch": list[Tensor],
+        "label_batch": list[Tensor],
+    },
+)
 
 
 class DecoupledHeadUnit(nn.Module):
@@ -308,7 +314,7 @@ class Criterion:
         assign_topk: int = 9,
         assign_radius: float = 2.0,
         assign_center_wight: float = 1.0,
-        local_mask_limit:int = 1,
+        local_mask_limit: int = 1,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -319,7 +325,7 @@ class Criterion:
         self.assign = assign
 
         self.box_loss = CIoULoss()
-        self.obj_loss = F.binary_cross_entropy_with_logits
+        self.obj_loss = FocalLossWithLogits()
         self.local_mask_loss = F.binary_cross_entropy_with_logits
         self.cate_loss = F.binary_cross_entropy_with_logits
         self.local_mask_limit = local_mask_limit
@@ -340,7 +346,10 @@ class Criterion:
             gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
         # filtered_gt_box_batch = gt_box_batch[:1]
-        gt_local_mask_batch = self.prepeare_mask_gt(gt_mask_batch[:self.local_mask_limit], gt_box_batch[:self.local_mask_limit])
+        gt_local_mask_batch = self.prepeare_mask_gt(
+            gt_mask_batch[: self.local_mask_limit],
+            gt_box_batch[: self.local_mask_limit],
+        )
 
         # # 1-stage
         obj_loss = self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
@@ -367,7 +376,7 @@ class Criterion:
 
             # 2-stage
             pred_local_masks = self.model.local_mask_branch(
-                gt_box_batch[:self.local_mask_limit],
+                gt_box_batch[: self.local_mask_limit],
                 self.model.mask_feats(feats),
             )
             local_mask_loss += self.local_mask_loss(
@@ -463,11 +472,14 @@ class TrainStep:
         self.use_amp = use_amp
         self.scaler = GradScaler()
 
-    def __call__(self, batch: Batch) -> dict[str, float]:
+    def __call__(self, batch: TrainBatch) -> dict[str, float]:
         self.criterion.model.train()
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
-            images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
+            images = batch["images"]
+            gt_mask_batch = batch["mask_batch"]
+            gt_box_batch = batch["box_batch"]
+            gt_label_batch = batch["label_batch"]
             loss, obj_loss, box_loss, cate_loss, local_mask_loss = self.criterion(
                 (images,),
                 (
@@ -500,11 +512,14 @@ class ValidationStep:
     @torch.no_grad()
     def __call__(
         self,
-        batch: Batch,
+        batch: TrainBatch,
         on_end: Optional[Callable[[Any, Any], None]] = None,
     ) -> dict[str, float]:
         self.model.eval()
-        images, gt_mask_batch, gt_box_batch, gt_label_batch = batch
+        images = batch["images"]
+        gt_mask_batch = batch["mask_batch"]
+        gt_box_batch = batch["box_batch"]
+        gt_label_batch = batch["label_batch"]
         (
             pred_score_batch,
             pred_box_batch,

@@ -44,6 +44,33 @@ class FocalLoss(nn.Module):
         return loss
 
 
+class FocalLossWithLogits(nn.Module):
+    """
+    Modified focal loss
+    """
+
+    def __init__(
+        self,
+        alpha: float = 2.0,
+        beta: float = 2.0,
+        eps: float = 5e-4,
+    ):
+        super().__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.eps = eps
+
+    def forward(self, pred: Tensor, gt: Tensor) -> Tensor:
+        """
+        pred: 0-1 [B, C,..]
+        gt: 0-1 [B, C,..]
+        """
+        bce_loss = F.binary_cross_entropy_with_logits(pred, gt, reduce=False)
+        pt = torch.exp(-bce_loss)
+        f_loss = self.alpha * (1 - pt) ** self.beta * bce_loss
+        return f_loss.mean()
+
+
 class DiceLoss:
     def __init__(self, smooth: float = 1.0) -> None:
         self.smooth = smooth

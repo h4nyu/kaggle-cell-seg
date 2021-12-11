@@ -3,6 +3,7 @@ from torchvision.ops import masks_to_boxes
 import numpy as np
 import torch
 from torch import Tensor
+import math
 import random
 import torch.nn as nn
 from typing import Optional, TypeVar, Generic, Any, Union, Callable
@@ -19,6 +20,17 @@ def seed_everything(seed: int) -> None:
 
 def round_to(n: float, multiple: int = 8) -> int:
     return int(round(n / multiple) * multiple)
+
+
+def log_rand(low: float, high: float) -> float:
+    return math.exp(random.uniform(math.log(low), math.log(high)))
+
+
+def fix_bboxes(bboxes: Tensor) -> Tensor:
+    if bboxes.size(0) == 0:
+        return torch.empty((0, 4)).to(bboxes)
+    else:
+        return bboxes
 
 
 def weighted_mean(x: Tensor, weights: Tensor, eps: float = 1e-6) -> Tensor:

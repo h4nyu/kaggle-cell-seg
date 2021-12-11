@@ -156,7 +156,7 @@ def test_to_boxes(
 def test_assign(sample: TrainItem, mask_yolo: MaskYolo, assign: SimOTA) -> None:
     limit = 10
     box_idx = 5
-    gt_box_batch = [sample["boxes"][box_idx:box_idx+1]]
+    gt_box_batch = [sample["boxes"][box_idx : box_idx + 1]]
     gt_mask_batch = [sample["masks"]]
     gt_label_batch = [sample["labels"]]
     images = sample["image"].unsqueeze(0)

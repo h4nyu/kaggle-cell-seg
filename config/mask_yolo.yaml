@@ -1,4 +1,4 @@
-name: mask_yolo-b2-512-3-48
+name: mask_yolo-b2-512-4-6-32
 use_amp: true
 use_patch: false
 num_epochs: 100
@@ -13,15 +13,15 @@ log_keys:
 root_path: &root_path /store
 
 num_classes: 1
-patch_size: 512
+patch_size: 704
 mask_size: 32
 
 # model
-box_feat_range: [3, 6]
+box_feat_range: [4, 6]
 mask_feat_range: [0, 2]
 hidden_channels: 64
 score_threshold: 0.5
-box_iou_threshold: 0.25
+box_iou_threshold: 0.4
 mask_threshold: 0.4
 
 data:
@@ -35,7 +35,7 @@ data:
 
 fold:
   index: 0
-  n_splits: 6
+  n_splits: 5
   seed: *seed
 
 backbone:
@@ -50,22 +50,22 @@ dataset:
   smallest_area: 8
 
 criterion:
-  obj_weight: 1.0
-  box_weight: 0.75
+  obj_weight: 2.0
+  box_weight: 1.0
   cate_weight: 0.0
-  local_mask_weight: 0.3
+  local_mask_weight: 0.2
 
 assign:
   topk: 10
-  radius: 2.0
+  radius: 2.5
   center_weight: 0.5
-  obj_weight: 1.0
-  box_weight: 1.5
+  obj_weight: 2.0
+  box_weight: 1.0
 
 optimizer:
-  # lr: &lr 1.0e-3
+  lr: &lr 1.0e-3
   # lr: &lr 5.0e-4
-  lr: &lr 1.0e-4
+  # lr: &lr 1.0e-4
 
 scheduler:
   mode: min

@@ -49,6 +49,16 @@ def get_masks(
     return masks
 
 
+TrainBatch = TypedDict(
+    "TrainBatch",
+    {
+        "images": Tensor,
+        "mask_batch": list[Tensor],
+        "box_batch": list[Tensor],
+        "label_batch": list[Tensor],
+    },
+)
+
 TrainItem = TypedDict(
     "TrainItem",
     {
@@ -67,6 +77,17 @@ inv_normalize = A.Normalize(
     std=[1 / s for s in normalize_std],
 )
 
+PadResize = lambda size: A.Compose(
+    [
+        A.LongestMaxSize(max_size=size),
+        A.PadIfNeeded(
+            min_height=size,
+            min_width=size,
+            border_mode=0,
+        ),
+    ]
+)
+
 
 class TrainTranform:
     def __init__(self, size: int, use_patch: bool = False):
@@ -74,11 +95,11 @@ class TrainTranform:
         self.transform = A.Compose(
             [
                 A.Flip(),
-                A.RandomRotate90(),
+                # A.RandomRotate90(),
                 A.RandomScale(scale_limit=(0.1, 0.1), p=1.0),
                 A.RandomCrop(width=size, height=size, p=1.0)
                 if use_patch
-                else A.Resize(width=size, height=size, p=1.0),
+                else PadResize(size=size),
                 ToTensorV2(),
             ]
         )
@@ -92,9 +113,10 @@ class Tranform:
 
         self.transform = A.Compose(
             [
+                A.LongestMaxSize(max_size=size),
                 A.RandomCrop(width=size, height=size, p=1.0)
                 if use_patch
-                else A.Resize(width=size, height=size, p=1.0),
+                else PadResize(size=size),
                 ToTensorV2(),
             ]
         )
@@ -105,7 +127,7 @@ class Tranform:
 
 def collate_fn(
     batch: list[TrainItem],
-) -> tuple[Tensor, list[Tensor], list[Tensor], list[Tensor]]:
+) -> TrainBatch:
     images: list[Tensor] = []
     mask_batch: list[Tensor] = []
     box_batch: list[Tensor] = []
@@ -115,11 +137,11 @@ def collate_fn(
         mask_batch.append(row["masks"])
         box_batch.append(row["boxes"])
         label_batch.append(row["labels"])
-    return (
-        torch.stack(images),
-        mask_batch,
-        box_batch,
-        label_batch,
+    return dict(
+        images=torch.stack(images),
+        mask_batch=mask_batch,
+        box_batch=box_batch,
+        label_batch=label_batch,
     )
 
 
