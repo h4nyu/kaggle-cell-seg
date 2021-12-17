@@ -18,6 +18,7 @@ def test_efficient_net_fpn(name: str) -> None:
         == len(backbone.strides)
     )
     for f, s, c in zip(features, expected_sizes, backbone.out_channels):
+        print(f.shape)
         assert f.size(1) == c
         assert f.shape[2] == s
         assert f.shape[3] == s
@@ -28,3 +29,5 @@ def test_darknet() -> None:
     image = torch.rand(1, 3, image_size, image_size)
     backbone = CSPDarknet()
     features = backbone(image)
+    for f in features:
+        print(f.shape)

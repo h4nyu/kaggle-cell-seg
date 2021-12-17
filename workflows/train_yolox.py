@@ -6,7 +6,8 @@ from hydra.utils import instantiate
 from typing import Any, Optional
 from logging import getLogger, FileHandler
 
-# import torch.optim as optim
+import torch.optim as optim
+
 import torch_optimizer as optim
 from cellseg.yolox import (
     MaskYolo,
@@ -26,6 +27,7 @@ from cellseg.data import (
     TrainTranform,
     Tranform,
 )
+from cellseg.batch_transform import RandomResize
 from cellseg.necks import CSPNeck
 from torch.utils.data import Subset, DataLoader
 from pathlib import Path
@@ -44,7 +46,7 @@ def main(cfg: DictConfig) -> None:
     )
     neck = CSPNeck(
         in_channels=backbone.out_channels,
-        out_channels=backbone.out_channels,
+        out_channels=[cfg.hidden_channels for _ in backbone.out_channels],
         strides=backbone.strides,
     )
     model = MaskYolo(
@@ -63,6 +65,7 @@ def main(cfg: DictConfig) -> None:
     model = model.to(cfg.device)
     assign = SimOTA(**cfg.assign)
     criterion = Criterion(model=model, assign=assign, **cfg.criterion)
+    # optimizer = optim.SGD(model.parameters(), **cfg.optimizer)
     optimizer = optim.AdaBound(model.parameters(), **cfg.optimizer)
     train_step = TrainStep(
         optimizer=optimizer,
@@ -85,13 +88,14 @@ def main(cfg: DictConfig) -> None:
         ),
     )
     train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)
-    collate_fn = CollateFn()
     train_loader = DataLoader(
-        Subset(train_dataset, train_indecies), collate_fn=collate_fn, **cfg.train_loader
+        Subset(train_dataset, train_indecies),
+        collate_fn=CollateFn(),
+        **cfg.train_loader,
     )
     val_loader = DataLoader(
         Subset(val_dataset, validation_indecies),
-        collate_fn=collate_fn,
+        collate_fn=CollateFn(),
         **cfg.validation_loader,
     )
     to_device = ToDevice(cfg.device)
@@ -99,14 +103,14 @@ def main(cfg: DictConfig) -> None:
     for _ in range(cfg.num_epochs):
         train_reduer = MeanReduceDict(keys=cfg.log_keys)
         for batch in train_loader:
-            batch = to_device(*batch)
+            batch = to_device(**batch)
             train_log = train_step(batch)
             train_reduer.accumulate(train_log)
             logger.info(f"train batch {train_log} ")
         logger.info(f"epoch train {train_reduer.value}")
         mask_ap = MaskAP(**cfg.mask_ap)
         for batch in val_loader:
-            batch = to_device(*batch)
+            batch = to_device(**batch)
             validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
         if score < mask_ap.value:
             score = checkpoint.save(model, mask_ap.value)

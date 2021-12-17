@@ -7,8 +7,10 @@ from cellseg.data import (
     Tranform,
     TrainTranform,
     inv_normalize,
+    get_fold_indices,
 )
 from cellseg.utils import draw_save
+from torch.utils.data import Subset
 from hydra import compose, initialize
 import pandas as pd
 from torchvision.io import read_image
@@ -108,3 +110,22 @@ def test_cell_validation() -> None:
     assert image.shape == (3, cfg.size, cfg.size)
     assert image.shape[1:] == masks.shape[1:]
     assert labels.shape[0] == masks.shape[0]
+
+
+@pytest.mark.skipif(not has_data, reason="no data volume")
+def test_cell_fold() -> None:
+    dataset = CellTrainDataset(
+        **cfg.dataset,
+    )
+    a, b = get_fold_indices(dataset)
+    runing = 0
+    # for i in Subset(dataset, a):
+    #     runing += len(i["masks"])
+    # print(runing / len(a))
+
+    # runing = 0
+    # for i in Subset(dataset, b):
+    #     runing += len(i["masks"])
+    # print(runing / len(b))
+
+

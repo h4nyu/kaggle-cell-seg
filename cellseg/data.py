@@ -15,6 +15,7 @@ from sklearn.model_selection import StratifiedKFold
 from torchvision.ops import masks_to_boxes
 import albumentations as A
 
+CELL_TYPES = ["astro", "cort", "shsy5y"]
 
 def seed(num: int) -> None:
     torch.manual_seed(num)
@@ -94,12 +95,14 @@ class TrainTranform:
 
         self.transform = A.Compose(
             [
+                A.RandomBrightness(),
                 A.Flip(),
-                # A.RandomRotate90(),
-                A.RandomScale(scale_limit=(0.1, 0.1), p=1.0),
+                A.RandomRotate90(),
+                A.ShiftScaleRotate(scale_limit=(0.2, 0.2), p=1.0, border_mode=0),
                 A.RandomCrop(width=size, height=size, p=1.0)
                 if use_patch
-                else PadResize(size=size),
+                else A.Resize(width=size, height=size, p=1.0),
+                # else PadResize(size=size),
                 ToTensorV2(),
             ]
         )
@@ -116,7 +119,8 @@ class Tranform:
                 A.LongestMaxSize(max_size=size),
                 A.RandomCrop(width=size, height=size, p=1.0)
                 if use_patch
-                else PadResize(size=size),
+                else A.Resize(width=size, height=size, p=1.0),
+                # else PadResize(size=size),
                 ToTensorV2(),
             ]
         )
@@ -127,7 +131,7 @@ class Tranform:
 
 class CollateFn:
     def __init__(self, transform: Any = None) -> None:
-        self.transform = None
+        self.transform = transform
 
     def __call__(self, batch: list[TrainItem]) -> TrainBatch:
         images: list[Tensor] = []
@@ -139,12 +143,16 @@ class CollateFn:
             mask_batch.append(row["masks"])
             box_batch.append(row["boxes"])
             label_batch.append(row["labels"])
-        return dict(
+
+        res = dict(
             images=torch.stack(images),
             mask_batch=mask_batch,
             box_batch=box_batch,
             label_batch=label_batch,
         )
+        if self.transform is not None:
+            return self.transform(res)
+        return res
 
 
 class CellTrainDataset(Dataset):
@@ -159,7 +167,7 @@ class CellTrainDataset(Dataset):
         df = pd.read_csv(train_csv)
         self.df = df
         self.indecies = self.df["id"].unique()
-        self.stratums = df.groupby("id").count()["sample_id"]
+        self.stratums = df.groupby("id").first()["cell_type"].values
         self.transform = ToTensorV2() if transform is None else transform
         self.smallest_area = smallest_area
 
@@ -202,4 +210,5 @@ def get_fold_indices(
     splitter = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     x = np.arange(len(dataset))
     y = dataset.stratums
+    print(y)
     return list(splitter.split(x, y))[index]

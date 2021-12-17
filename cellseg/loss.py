@@ -68,7 +68,7 @@ class FocalLossWithLogits(nn.Module):
         bce_loss = F.binary_cross_entropy_with_logits(pred, gt, reduce=False)
         pt = torch.exp(-bce_loss)
         f_loss = self.alpha * (1 - pt) ** self.beta * bce_loss
-        return f_loss.mean()
+        return f_loss
 
 
 class DiceLoss:

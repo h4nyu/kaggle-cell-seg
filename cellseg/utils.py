@@ -44,7 +44,18 @@ class ToDevice:
     ) -> None:
         self.device = device
 
-    def __call__(self, *args: Union[Tensor, list[Tensor]]) -> Any:
+    def __call__(
+        self,
+        *args: Union[Tensor, list[Tensor]],
+        **kargs: Union[Tensor, list[Tensor]],
+    ) -> Any:
+        if kargs is not None:
+            return {
+                k: [x.to(self.device) for x in v]
+                if isinstance(v, list)
+                else v.to(self.device)
+                for k, v in kargs.items()
+            }
         return tuple(
             [i.to(self.device) for i in x] if isinstance(x, list) else x.to(self.device)
             for x in args
@@ -176,6 +187,10 @@ class ToPatches:
         return images, patches, patch_grid
 
 
+def weighted_mean(x: Tensor, weights: Tensor, eps: float = 1e-6) -> Tensor:
+    return (x * weights).sum() / (weights.sum() + eps)
+
+
 class MergePatchedMasks:
     def __init__(
         self,
@@ -199,3 +214,7 @@ class MergePatchedMasks:
             ] = masks
             out_batch.append(out_masks)
         return torch.cat(out_batch)
+
+
+def box_area(boxes: Tensor) -> Tensor:
+    return (boxes[..., 2] - boxes[..., 0]) * (boxes[..., 3] - boxes[..., 1])

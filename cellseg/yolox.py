@@ -179,7 +179,7 @@ class MaskYolo(nn.Module):
             yolo_boxes = torch.cat(
                 [
                     (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
-                    yolo_boxes[..., 2:4].exp() * strides,
+                    yolo_boxes[..., 2:4] * strides,
                     yolo_boxes[..., 4:],
                     strides,
                     anchor_points,
@@ -315,6 +315,7 @@ class Criterion:
         assign_radius: float = 2.0,
         assign_center_wight: float = 1.0,
         local_mask_limit: int = 1,
+        use_mask_stage: bool = False,
     ) -> None:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
@@ -329,6 +330,7 @@ class Criterion:
         self.local_mask_loss = F.binary_cross_entropy_with_logits
         self.cate_loss = F.binary_cross_entropy_with_logits
         self.local_mask_limit = local_mask_limit
+        self.use_mask_stage = use_mask_stage
 
     def __call__(
         self,
@@ -345,21 +347,19 @@ class Criterion:
         gt_yolo_batch, gt_local_mask_batch, pos_idx = self.prepeare_box_gt(
             gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
-        # filtered_gt_box_batch = gt_box_batch[:1]
-        gt_local_mask_batch = self.prepeare_mask_gt(
-            gt_mask_batch[: self.local_mask_limit],
-            gt_box_batch[: self.local_mask_limit],
-        )
+        matched_count = pos_idx.sum()
 
         # # 1-stage
-        obj_loss = self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
+        obj_loss = (
+            self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4]).sum()
+            / matched_count
+        )
 
         box_loss, cate_loss, local_mask_loss = (
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
         )
-        matched_count = pos_idx.sum()
         if matched_count > 0:
             box_loss += self.box_loss(
                 box_convert(
@@ -375,13 +375,18 @@ class Criterion:
             )
 
             # 2-stage
-            pred_local_masks = self.model.local_mask_branch(
-                gt_box_batch[: self.local_mask_limit],
-                self.model.mask_feats(feats),
-            )
-            local_mask_loss += self.local_mask_loss(
-                pred_local_masks, gt_local_mask_batch
-            )
+            if self.use_mask_stage:
+                gt_local_mask_batch = self.prepeare_mask_gt(
+                    gt_mask_batch[: self.local_mask_limit],
+                    gt_box_batch[: self.local_mask_limit],
+                )
+                pred_local_masks = self.model.local_mask_branch(
+                    gt_box_batch[: self.local_mask_limit],
+                    self.model.mask_feats(feats),
+                )
+                local_mask_loss += self.local_mask_loss(
+                    pred_local_masks, gt_local_mask_batch
+                )
 
         loss = (
             self.box_weight * box_loss

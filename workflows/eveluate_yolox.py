@@ -45,7 +45,7 @@ def main(cfg: DictConfig) -> None:
     )
     neck = CSPNeck(
         in_channels=backbone.out_channels,
-        out_channels=backbone.out_channels,
+        out_channels=[cfg.hidden_channels for _ in backbone.out_channels],
         strides=backbone.strides,
     )
     model = MaskYolo(
@@ -80,8 +80,11 @@ def main(cfg: DictConfig) -> None:
     idx = 0
     mask_ap = MaskAP()
     for batch in loader:
-        batch = to_device(*batch)
-        images, gt_mask_batch, _, _ = batch
+        batch = to_device(**batch)
+        images = batch["images"]
+        gt_mask_batch = batch["mask_batch"]
+        gt_box_batch = batch["box_batch"]
+        gt_label_batch = batch["label_batch"]
         _, _, _, pred_mask_batch = inference_step(images)
         for image, masks, gt_masks in zip(images, pred_mask_batch, gt_mask_batch):
             pred_count = masks.shape[0]

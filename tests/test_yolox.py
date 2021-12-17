@@ -28,7 +28,7 @@ def mask_yolo() -> MaskYolo:
     patch_size = 128
     neck = CSPNeck(
         in_channels=backbone.out_channels,
-        out_channels=backbone.out_channels,
+        out_channels=[256 for _ in  backbone.out_channels],
         strides=backbone.strides,
     )
     return MaskYolo(
@@ -156,7 +156,7 @@ def test_to_boxes(
 def test_assign(sample: TrainItem, mask_yolo: MaskYolo, assign: SimOTA) -> None:
     limit = 10
     box_idx = 5
-    gt_box_batch = [sample["boxes"][box_idx : box_idx + 1]]
+    gt_box_batch = [sample["boxes"][box_idx : box_idx + 10]]
     gt_mask_batch = [sample["masks"]]
     gt_label_batch = [sample["labels"]]
     images = sample["image"].unsqueeze(0)
@@ -165,11 +165,12 @@ def test_assign(sample: TrainItem, mask_yolo: MaskYolo, assign: SimOTA) -> None:
     pred_yolo_batch = mask_yolo.box_branch(box_feats)
     num_classes = mask_yolo.num_classes
     criterion = Criterion(model=mask_yolo, assign=assign)
+    print(mask_yolo.box_strides)
 
     gt_yolo_batch, gt_local_mask_batch, pos_idx = criterion.prepeare_box_gt(
         gt_mask_batch, gt_box_batch, gt_label_batch, pred_yolo_batch
     )
-    pos_idx = pos_idx
+    print(pred_yolo_batch[..., :][pos_idx])
     draw_save(
         "/app/test_outputs/yolox-assign-anchor.png",
         images[0],

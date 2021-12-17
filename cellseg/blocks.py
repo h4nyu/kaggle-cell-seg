@@ -18,7 +18,7 @@ class ConvBnAct(nn.Module):
         stride: int = 1,
         dilation: int = 1,
         groups: int = 1,
-        act: Optional[Callable[[Tensor], Tensor]] = nn.Mish(inplace=True),
+        act: Optional[Callable[[Tensor], Tensor]] = DefaultActivation,
     ) -> None:
         super().__init__()
         padding = kernel_size // 2
@@ -48,7 +48,7 @@ class ResBlock(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        act: Optional[Callable[[Tensor], Tensor]] = nn.Mish(inplace=True),
+        act: Optional[Callable[[Tensor], Tensor]] = DefaultActivation,
     ):
         super().__init__()
         self.convs = nn.Sequential(

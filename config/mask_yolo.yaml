@@ -1,4 +1,4 @@
-name: mask_yolo-b2-512-4-6-32
+name: mask_yolo-fold-0-b3-2-5-24
 use_amp: true
 use_patch: false
 num_epochs: 100
@@ -14,15 +14,15 @@ root_path: &root_path /store
 
 num_classes: 1
 patch_size: 704
-mask_size: 32
+mask_size: 24
 
 # model
-box_feat_range: [4, 6]
+box_feat_range: [1, 5]
 mask_feat_range: [0, 2]
-hidden_channels: 64
+hidden_channels: 256
 score_threshold: 0.5
 box_iou_threshold: 0.4
-mask_threshold: 0.4
+mask_threshold: 0.5
 
 data:
   root_path: *root_path
@@ -35,11 +35,11 @@ data:
 
 fold:
   index: 0
-  n_splits: 5
+  n_splits: 6
   seed: *seed
 
 backbone:
-  name: "efficientnet-b2"
+  name: "efficientnet-b3"
 
 mask_ap:
   reduce_size: 4
@@ -47,25 +47,31 @@ mask_ap:
 dataset:
   img_dir: /store/train
   train_csv: /store/train.csv
-  smallest_area: 8
 
 criterion:
-  obj_weight: 2.0
+  obj_weight: 1.4
   box_weight: 1.0
   cate_weight: 0.0
-  local_mask_weight: 0.2
+  local_mask_weight: 0.5
+  use_mask_stage: true
 
 assign:
-  topk: 10
-  radius: 2.5
-  center_weight: 0.5
-  obj_weight: 2.0
+  topk: 20
+  radius: 3.5
+  center_weight: 1.0
+  obj_weight: 1.0
   box_weight: 1.0
 
 optimizer:
   lr: &lr 1.0e-3
   # lr: &lr 5.0e-4
   # lr: &lr 1.0e-4
+  # momentum: 0.95
+  # nesterov: true
+
+random_resize:
+  scale_lim: [0.8, 1.2]
+
 
 scheduler:
   mode: min

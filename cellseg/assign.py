@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 from torchvision.ops import box_convert
 from torchvision.ops.boxes import box_iou
+from cellseg.utils import box_area
 
 
 class ClosestAssign:
@@ -105,12 +106,14 @@ class SimOTA:
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
         center_weight: float = 1.0,
+        eps: float = 1e-5,
     ) -> None:
         self.topk = topk
         self.radius = radius
         self.obj_weight = obj_weight
         self.box_weight = box_weight
         self.center_weight = center_weight
+        self.eps = eps
 
     def candidates(
         self,
@@ -141,6 +144,16 @@ class SimOTA:
             :, candidates
         ]  # [num_gts, num_fg_candidates]
         return candidates, center_matrix
+
+    def combi_box_iou(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
+        area1 = box_area(boxes1)
+        area2 = box_area(boxes2)
+        lt = torch.maximum(boxes1[..., :, None, :2], boxes2[..., None, :, :2])
+        rb = torch.minimum(boxes1[..., :, None, 2:], boxes2[..., None, :, 2:])
+        wh = (rb - lt).clamp(min=0)
+        inter = wh[..., 0] * wh[..., 1]
+        union = area1[..., :, None] + area2[..., None, :] - inter
+        return inter / (union + self.eps)
 
     def __call__(
         self,
